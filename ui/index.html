@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Endarr</title>
+    <!-- Theme initialisation – prevents FOUC -->
+    <script>
+        (function() {
+            const theme = localStorage.getItem('endarr_theme');
+            if (theme === 'light') {
+                document.documentElement.classList.add('light-theme');
+            }
+        })();
+    </script>
+    <link rel="icon" type="image/png" href="/ui/assets/favicon-96x96.png" sizes="96x96" />
+    <link rel="icon" type="image/svg+xml" href="/ui/assets/favicon.svg" />
+    <link rel="shortcut icon" href="/ui/assets/favicon.ico" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/ui/assets/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-title" content="Endarr" />
+    <link rel="manifest" href="/ui/assets/site.webmanifest" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/ui/css/style.css">
+    <link rel="stylesheet" href="/ui/css/settings.css">
+</head>
+<body>
+    <div class="sidebar" role="navigation" aria-label="Main navigation">
+        <div class="sidebar-header">
+            <img src="/ui/assets/images/logo.svg" alt="Endarr" class="sidebar-logo">
+        </div>
+        <div class="nav" role="list">
+            <div class="nav-item" data-page="dashboard" role="listitem" tabindex="0" aria-current="page"><i class="fas fa-tachometer-alt" aria-hidden="true"></i><span>Dashboard</span></div>
+            <div class="nav-item" data-page="torrents" role="listitem" tabindex="0"><i class="fas fa-download" aria-hidden="true"></i><span>Torrents</span></div>
+            <div class="nav-item" data-page="grabs" role="listitem" tabindex="0"><i class="fas fa-hand-paper" aria-hidden="true"></i><span>Grabs</span></div>
+            <div class="nav-item" data-page="downloads" role="listitem" tabindex="0"><i class="fas fa-check-circle" aria-hidden="true"></i><span>Downloads</span></div>
+            <div class="nav-item" data-page="blacklist" role="listitem" tabindex="0"><i class="fas fa-ban" aria-hidden="true"></i><span>Blacklist</span></div>
+            <div class="nav-item" data-page="settings" role="listitem" tabindex="0" aria-haspopup="true" aria-expanded="false"><i class="fas fa-cog" aria-hidden="true"></i><span>Settings</span></div>
+            <!-- Settings Sub‑Navigation (hidden by default) -->
+            <div id="settingsSubNav" class="nav" style="display: none;" role="group" aria-label="Settings sections">
+                <div class="nav-item sub-item" data-settings-page="general" role="listitem" tabindex="0">General</div>
+                <div class="nav-item sub-item" data-settings-page="torrent" role="listitem" tabindex="0">Torrent Handling</div>
+                <div class="nav-item sub-item" data-settings-page="upgrade" role="listitem" tabindex="0">Upgrade Handling</div>
+                <div class="nav-item sub-item" data-settings-page="protection" role="listitem" tabindex="0">Protection & Blocking</div>
+                <div class="nav-item sub-item" data-settings-page="integrations" role="listitem" tabindex="0">Integrations</div>
+                <div class="nav-item sub-item" data-settings-page="watchdog" role="listitem" tabindex="0">Watchdog</div>
+            </div>
+            <div class="nav-item" data-page="system" role="listitem" tabindex="0" aria-haspopup="true" aria-expanded="false"><i class="fas fa-server" aria-hidden="true"></i><span>System</span></div>
+            <!-- System Sub‑Navigation -->
+            <div id="systemSubNav" class="nav" style="display: none;" role="group" aria-label="System sections">
+                <div class="nav-item sub-item" data-system-page="logs" role="listitem" tabindex="0">Logs</div>
+            </div>
+        </div>
+    </div>
+    <div class="main" role="main" aria-label="Content">
+        <div class="top-bar">
+            <div class="top-bar-right">
+                <i class="fas fa-moon" id="themeToggle" role="button" tabindex="0" aria-label="Toggle theme" title="Toggle light/dark theme"></i>
+                <button id="menuBtn" class="icon-btn" aria-label="Menu" aria-haspopup="menu" aria-expanded="false" title="Application menu">
+                    <i class="fas fa-user"></i>
+                </button>
+                <div id="menuDropdown" class="menu-dropdown" role="menu" style="display: none;">
+                    <button id="restartBtn" class="menu-item" role="menuitem"><i class="fas fa-undo"></i> Restart</button>
+                    <button id="shutdownBtn" class="menu-item" role="menuitem" style="display: none;"><i class="fas fa-power-off"></i> Shutdown</button>
+                </div>
+            </div>
+        </div>
+        <div class="content" id="pageContent">
+            <div class="loading">Loading...</div>
+        </div>
+    </div>
+
+    <!-- Global Confirmation Modal -->
+    <div id="confirmModal" class="modal" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="confirmModalTitle">
+        <div class="modal-content" style="max-width: 400px;">
+            <div class="modal-header">
+                <h3 id="confirmModalTitle">Confirm</h3>
+                <button class="modal-close" id="confirmModalClose" aria-label="Close confirmation dialog">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p id="confirmModalMessage">Are you sure?</p>
+            </div>
+            <div class="modal-footer">
+                <button id="confirmModalCancel" class="secondary-btn">Cancel</button>
+                <button id="confirmModalOk" class="primary-btn">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Global Dynamic Modal -->
+    <div id="globalModal" class="modal" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="globalModalTitle">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="globalModalTitle">Modal Title</h3>
+                <button class="modal-close" id="globalModalClose" aria-label="Close modal">&times;</button>
+            </div>
+            <div class="modal-body" id="globalModalBody">
+                <!-- Dynamic content injected here -->
+            </div>
+            <div class="modal-footer" id="globalModalFooter">
+                <div class="modal-footer-left" id="globalModalFooterLeft"></div>
+                <div class="modal-footer-right" id="globalModalFooterRight"></div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="/ui/js/modal.js"></script>
+    <script src="/ui/js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,327 @@
+<!-- ui/pages/settings_torrents.html -->
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+    <h2 style="margin-bottom: 0;">Torrent Handling</h2>
+    <label class="checkbox-group">
+        <input type="checkbox" id="showAdvancedToggle">
+        <span>Show Advanced Options</span>
+    </label>
+</div>
+
+<!-- Successful Torrents Section -->
+<div class="settings-section" aria-labelledby="successful-heading">
+    <h2 id="successful-heading">Successful Torrents</h2>
+    <p class="section-note">What to do after a torrent is successfully imported.</p>
+
+    <div class="form-grid">
+        <label for="globalDeletePolicyMode">Policy Mode</label>
+        <div class="input-wrapper">
+            <select id="globalDeletePolicyMode" data-field="defaults.delete_policy">
+                <option value="none">None</option>
+                <option value="immediate">Immediate</option>
+                <option value="calculated">Calculated</option>
+            </select>
+        </div>
+        <div aria-hidden="true"></div>
+    </div>
+
+    <div id="deletionRulesContainer" role="region" aria-label="Seeding goals conditions">
+        <div class="conditions-header">
+            <h3 id="seedingGoalsHeading">Seeding Goals</h3>
+            <div class="radio-group" role="radiogroup" aria-labelledby="seedingGoalsHeading">
+                <label class="radio-label"><input type="radio" name="operator" value="any" checked> Any (OR)</label>
+                <label class="radio-label"><input type="radio" name="operator" value="all"> All (AND)</label>
+            </div>
+        </div>
+        <div id="conditionsList" class="conditions-list" role="list" aria-label="Current conditions"></div>
+        <button id="addConditionBtn" class="secondary-btn"><i class="fas fa-plus"></i> Add Condition</button>
+    </div>
+
+    <!-- Hidden ratio and seed time fields -->
+    <div style="display: none;">
+        <input type="number" id="ratioGoal" data-field="defaults.ratio_goal" step="0.1" value="2.0">
+        <input type="number" id="seedTime" data-field="defaults.seed_time_seconds" value="86400">
+    </div>
+
+    <!-- Advanced Fields (two columns) -->
+    <div class="advanced-field" style="display: none;">
+        <div class="advanced-two-col">
+            <!-- Left Column -->
+            <div>
+                <div class="form-grid">
+                    <label for="uploadAmount">
+                        Upload Amount
+                        <span class="tooltip"><i class="fas fa-question-circle tooltip-icon" aria-hidden="true"></i>
+                            <span class="tooltip-text" role="tooltip">Delete after uploading this many bytes (0 = disabled)</span>
+                        </span>
+                    </label>
+                    <div class="input-wrapper">
+                        <input type="text" id="uploadAmount" data-field="defaults.upload_amount_bytes" value="0" data-byte-input aria-describedby="uploadAmountHelper">
+                        <span class="unit-label">bytes</span>
+                        <span class="helper-text" id="uploadAmountHelper">(0 B)</span>
+                    </div>
+                    <div aria-hidden="true"></div>
+                    <div class="error-message" id="uploadAmountError" style="display: none;" role="alert"></div>
+                </div>
+                <div class="form-grid">
+                    <label for="successIdleSeconds">
+                        Idle Timeout
+                        <span class="tooltip"><i class="fas fa-question-circle tooltip-icon" aria-hidden="true"></i>
+                            <span class="tooltip-text" role="tooltip">Delete if no upload activity for this duration after import (0 = disabled)</span>
+                        </span>
+                    </label>
+                    <div class="input-wrapper">
+                        <input type="text" id="successIdleSeconds" data-field="defaults.idle_seconds" data-duration value="3600" aria-describedby="successIdleHelper">
+                        <span class="unit-label">seconds</span>
+                        <span class="helper-text" id="successIdleHelper">(1 hour)</span>
+                    </div>
+                    <div aria-hidden="true"></div>
+                    <div class="error-message" id="successIdleError" style="display: none;" role="alert"></div>
+                </div>
+            </div>
+            <!-- Right Column -->
+            <div>
+                <div class="form-grid">
+                    <label for="minSeeders">
+                        Minimum Seeders
+                        <span class="tooltip"><i class="fas fa-question-circle tooltip-icon" aria-hidden="true"></i>
+                            <span class="tooltip-text" role="tooltip">Only delete if swarm has at least this many seeders (0 = disabled)</span>
+                        </span>
+                    </label>
+                    <div class="input-wrapper">
+                        <input type="number" id="minSeeders" data-field="defaults.min_seeders" value="0" min="0">
+                    </div>
+                    <div aria-hidden="true"></div>
+                    <div class="error-message" id="minSeedersError" style="display: none;" role="alert"></div>
+                </div>
+                <div class="form-grid">
+                    <label for="successAvailabilitySeconds">
+                        No Availability Timeout
+                        <span class="tooltip"><i class="fas fa-question-circle tooltip-icon" aria-hidden="true"></i>
+                            <span class="tooltip-text" role="tooltip">Delete if zero seeds/peers for this duration after import (0 = disabled)</span>
+                        </span>
+                    </label>
+                    <div class="input-wrapper">
+                        <input type="text" id="successAvailabilitySeconds" data-field="defaults.no_availability_seconds" data-duration value="7200" aria-describedby="successAvailabilityHelper">
+                        <span class="unit-label">seconds</span>
+                        <span class="helper-text" id="successAvailabilityHelper">(2 hours)</span>
+                    </div>
+                    <div aria-hidden="true"></div>
+                    <div class="error-message" id="successAvailabilityError" style="display: none;" role="alert"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="form-actions">
+        <button class="slide-btn" id="saveSuccessfulBtn">
+            <div class="slide-btn-inner default-content"><i class="far fa-save" aria-hidden="true"></i><span class="btn-text">Save Settings</span></div>
+            <div class="success-content" aria-hidden="true"><i class="fas fa-check"></i><span>Saved</span></div>
+            <div class="error-content" aria-hidden="true"><i class="fas fa-times"></i><span>Not saved</span></div>
+        </button>
+    </div>
+</div>
+
+<!-- ARR Overrides Section -->
+<div class="settings-section" aria-labelledby="arr-overrides-heading">
+    <div class="override-header">
+        <h2 id="arr-overrides-heading">ARR Overrides</h2>
+        <button id="addArrOverrideBtn" class="secondary-btn"><i class="fas fa-plus"></i> Add override</button>
+    </div>
+    <p class="section-note">Override the successful torrent settings for specific ARR instances.</p>
+    <div id="arrOverridesList" class="clients-grid" role="list" aria-label="ARR overrides"></div>
+</div>
+
+<!-- Problematic Torrents Section -->
+<div class="settings-section" aria-labelledby="problematic-heading">
+    <h2 id="problematic-heading">Problematic Torrents</h2>
+    <p class="section-note">Conditions that indicate a torrent is dead, stalled, or unwanted.</p>
+
+    <div class="problematic-grid">
+        <!-- Idle timeout -->
+        <div class="problematic-cell">
+            <div class="checkbox-row">
+                <input type="checkbox" id="enableIdle">
+                <label for="enableIdle">Idle timeout (no upload activity)</label>
+                <span class="tooltip"><i class="fas fa-question-circle tooltip-icon" aria-hidden="true"></i>
+                    <span class="tooltip-text" role="tooltip">Delete if no upload activity for this duration (any state).</span>
+                </span>
+            </div>
+            <div class="trigger-fields" id="idleSettings">
+                <div class="form-grid">
+                    <label for="problemIdleSeconds">Idle time</label>
+                    <div class="input-wrapper">
+                        <input type="text" id="problemIdleSeconds" data-field="problematic_torrents.idle_seconds" data-duration value="3600" aria-describedby="problemIdleHelper">
+                        <span class="unit-label">seconds</span>
+                        <span class="helper-text" id="problemIdleHelper">(1 hour)</span>
+                    </div>
+                    <div aria-hidden="true"></div>
+                    <div class="error-message" id="problemIdleError" style="display: none;" role="alert"></div>
+                </div>
+            </div>
+        </div>
+        <!-- No availability -->
+        <div class="problematic-cell">
+            <div class="checkbox-row">
+                <input type="checkbox" id="enableAvailability">
+                <label for="enableAvailability">No availability (zero seeds/peers)</label>
+                <span class="tooltip"><i class="fas fa-question-circle tooltip-icon" aria-hidden="true"></i>
+                    <span class="tooltip-text" role="tooltip">Delete if torrent has zero seeds and zero peers for this duration.</span>
+                </span>
+            </div>
+            <div class="trigger-fields" id="availabilitySettings">
+                <div class="form-grid">
+                    <label for="problemAvailabilitySeconds">Timeout</label>
+                    <div class="input-wrapper">
+                        <input type="text" id="problemAvailabilitySeconds" data-field="problematic_torrents.availability_seconds" data-duration value="7200" aria-describedby="problemAvailabilityHelper">
+                        <span class="unit-label">seconds</span>
+                        <span class="helper-text" id="problemAvailabilityHelper">(2 hours)</span>
+                    </div>
+                    <div aria-hidden="true"></div>
+                    <div class="error-message" id="problemAvailabilityError" style="display: none;" role="alert"></div>
+                </div>
+            </div>
+        </div>
+        <!-- Stalled download cleanup -->
+        <div class="problematic-cell">
+            <div class="checkbox-row">
+                <input type="checkbox" id="enableStalled">
+                <label for="enableStalled">Stalled download cleanup</label>
+                <span class="tooltip"><i class="fas fa-question-circle tooltip-icon" aria-hidden="true"></i>
+                    <span class="tooltip-text" role="tooltip">Delete torrents stuck at low progress for too long.</span>
+                </span>
+            </div>
+            <div class="trigger-fields" id="stalledSettings">
+                <div class="form-grid">
+                    <label for="stalledMinAge">Min age</label>
+                    <div class="input-wrapper">
+                        <input type="text" id="stalledMinAge" data-field="problematic_torrents.stalled_min_age" data-duration value="300" aria-describedby="stalledMinAgeHelper">
+                        <span class="unit-label">seconds</span>
+                        <span class="helper-text" id="stalledMinAgeHelper">(5 minutes)</span>
+                    </div>
+                    <div aria-hidden="true"></div>
+                    <div class="error-message" id="stalledMinAgeError" style="display: none;" role="alert"></div>
+                </div>
+                <div class="form-grid">
+                    <label for="stalledMinProgress">Min progress</label>
+                    <div class="input-wrapper">
+                        <input type="number" id="stalledMinProgress" data-field="problematic_torrents.stalled_min_progress" value="0.05" step="0.01" min="0" max="1">
+                    </div>
+                    <div aria-hidden="true"></div>
+                    <div class="error-message" id="stalledMinProgressError" style="display: none;" role="alert"></div>
+                </div>
+                <div class="form-grid">
+                    <label for="stalledStrikeThreshold">Strike threshold</label>
+                    <div class="input-wrapper">
+                        <input type="number" id="stalledStrikeThreshold" data-field="problematic_torrents.stalled_strike_threshold" value="3" min="1">
+                    </div>
+                    <div aria-hidden="true"></div>
+                    <div class="error-message" id="stalledStrikeThresholdError" style="display: none;" role="alert"></div>
+                </div>
+            </div>
+        </div>
+        <!-- Slow download speed cleanup -->
+        <div class="problematic-cell">
+            <div class="checkbox-row">
+                <input type="checkbox" id="enableSlowSpeed">
+                <label for="enableSlowSpeed">Slow download speed cleanup</label>
+                <span class="tooltip"><i class="fas fa-question-circle tooltip-icon" aria-hidden="true"></i>
+                    <span class="tooltip-text" role="tooltip">Delete torrents downloading below a minimum speed for too long.</span>
+                </span>
+            </div>
+            <div class="trigger-fields" id="slowSpeedSettings">
+                <div class="form-grid">
+                    <label for="slowSpeedKb">Min speed</label>
+                    <div class="input-wrapper">
+                        <input type="number" id="slowSpeedKb" data-field="problematic_torrents.slow_speed_kb" value="10" min="1">
+                        <span class="unit-label">KB/s</span>
+                    </div>
+                    <div aria-hidden="true"></div>
+                    <div class="error-message" id="slowSpeedKbError" style="display: none;" role="alert"></div>
+                </div>
+                <div class="form-grid">
+                    <label for="slowSpeedDuration">Duration</label>
+                    <div class="input-wrapper">
+                        <input type="text" id="slowSpeedDuration" data-field="problematic_torrents.slow_speed_duration" data-duration value="300" aria-describedby="slowSpeedDurationHelper">
+                        <span class="unit-label">seconds</span>
+                        <span class="helper-text" id="slowSpeedDurationHelper">(5 minutes)</span>
+                    </div>
+                    <div aria-hidden="true"></div>
+                    <div class="error-message" id="slowSpeedDurationError" style="display: none;" role="alert"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="checkbox-row checkbox-row-spaced">
+        <input type="checkbox" id="enableErrorState">
+        <label for="enableErrorState">Delete on error state</label>
+        <span class="tooltip"><i class="fas fa-question-circle tooltip-icon" aria-hidden="true"></i>
+            <span class="tooltip-text" role="tooltip">Delete torrent immediately if it enters an error state.</span>
+        </span>
+    </div>
+
+    <!-- Advanced Field -->
+    <div class="advanced-field" style="display: none;">
+        <div class="form-grid">
+            <label for="maxDownloadTime">Maximum Download Time</label>
+            <div class="input-wrapper">
+                <input type="text" id="maxDownloadTime" data-field="problematic_torrents.max_download_time_hours" value="0">
+                <span class="unit-label">hours</span>
+            </div>
+            <div aria-hidden="true"></div>
+            <div class="error-message" id="maxDownloadTimeError" style="display: none;" role="alert"></div>
+        </div>
+    </div>
+
+    <div class="form-row-checkboxes" role="group" aria-label="Post-deletion actions">
+        <label class="checkbox-group">
+            <input type="checkbox" id="problemSearchOnDelete">
+            <span>Search for replacement on deletion</span>
+            <span class="tooltip"><i class="fas fa-question-circle tooltip-icon" aria-hidden="true"></i>
+                <span class="tooltip-text">Tell the ARR to search for a new release after deleting a problematic torrent.</span>
+            </span>
+        </label>
+        <label class="checkbox-group">
+            <input type="checkbox" id="problemPolicyBlacklist">
+            <span>Add to blacklist on deletion</span>
+            <span class="tooltip"><i class="fas fa-question-circle tooltip-icon" aria-hidden="true"></i>
+                <span class="tooltip-text">Prevent this release from being grabbed again.</span>
+            </span>
+        </label>
+    </div>
+
+    <div class="form-actions">
+        <button class="slide-btn" id="saveProblematicBtn">
+            <div class="slide-btn-inner default-content"><i class="far fa-save" aria-hidden="true"></i><span class="btn-text">Save Settings</span></div>
+            <div class="success-content" aria-hidden="true"><i class="fas fa-check"></i><span>Saved</span></div>
+            <div class="error-content" aria-hidden="true"><i class="fas fa-times"></i><span>Not saved</span></div>
+        </button>
+    </div>
+</div>
+
+<!-- General Cleanup Section (Advanced) -->
+<div class="settings-section advanced-field" style="display: none;" aria-labelledby="cleanup-heading">
+    <h2 id="cleanup-heading">General Cleanup</h2>
+    <p class="section-note">Automatic deletion based on torrent age.</p>
+    <div class="form-grid">
+        <label for="torrentAgeDays">
+            Delete torrents older than
+            <span class="tooltip"><i class="fas fa-question-circle tooltip-icon" aria-hidden="true"></i>
+                <span class="tooltip-text" role="tooltip">0 = disabled</span>
+            </span>
+        </label>
+        <div class="input-wrapper">
+            <input type="text" id="torrentAgeDays" data-field="general_cleanup.torrent_age_days" value="0">
+            <span class="unit-label">days</span>
+        </div>
+        <div aria-hidden="true"></div>
+        <div class="error-message" id="torrentAgeDaysError" style="display: none;" role="alert"></div>
+    </div>
+    <div class="form-actions">
+        <button class="slide-btn" id="saveCleanupBtn">
+            <div class="slide-btn-inner default-content"><i class="far fa-save" aria-hidden="true"></i><span class="btn-text">Save Settings</span></div>
+            <div class="success-content" aria-hidden="true"><i class="fas fa-check"></i><span>Saved</span></div>
+            <div class="error-content" aria-hidden="true"><i class="fas fa-times"></i><span>Not saved</span></div>
+        </button>
+    </div>
+</div>

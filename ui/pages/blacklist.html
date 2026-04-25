@@ -1,0 +1,38 @@
+<!-- ui/pages/blacklist.html -->
+<div class="settings-section">
+    <h2>Blacklist</h2>
+    <p class="section-note">Releases that Endarr will ignore when grabbed.</p>
+
+    <!-- Add button -->
+    <div class="form-actions" style="margin-bottom: 20px;">
+        <button id="addBlacklistBtn" class="primary-btn" aria-label="Add blacklist entry" title="Add a new release to the blacklist">
+            <i class="fas fa-plus" aria-hidden="true"></i> Add Entry
+        </button>
+    </div>
+
+    <!-- Blacklist Table -->
+    <div class="table-scrollable" role="region" aria-label="Blacklist entries" tabindex="0">
+        <table class="data-table" role="table" aria-label="Blacklisted releases">
+            <thead>
+                <tr role="row">
+                    <th scope="col" role="columnheader">Release Title</th>
+                    <th scope="col" role="columnheader">ARR</th>
+                    <th scope="col" role="columnheader">Reason</th>
+                    <th scope="col" role="columnheader">Blocked At</th>
+                    <th scope="col" role="columnheader">Expires</th>
+                    <th scope="col" role="columnheader">Actions</th>
+                </tr>
+            </thead>
+            <tbody id="blacklistTableBody">
+                <tr><td colspan="6" class="loading">Loading...</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination -->
+    <div class="pagination" role="navigation" aria-label="Pagination">
+        <button id="prevPageBl" class="secondary-btn" disabled aria-label="Previous page"><i class="fas fa-chevron-left" aria-hidden="true"></i> Previous</button>
+        <span id="pageInfoBl" aria-live="polite">Page 1</span>
+        <button id="nextPageBl" class="secondary-btn" aria-label="Next page">Next <i class="fas fa-chevron-right" aria-hidden="true"></i></button>
+    </div>
+</div>

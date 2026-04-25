@@ -1,0 +1,77 @@
+<!-- ui/pages/settings_protection.html -->
+<div class="settings-section" aria-labelledby="protection-heading">
+    <h2 id="protection-heading">Protection & Blocking</h2>
+    <p class="section-note">Torrents matching any of these rules will never be automatically deleted.</p>
+
+    <!-- Tags -->
+    <div class="list-section" role="region" aria-labelledby="tags-heading">
+        <h3 id="tags-heading">
+            Tags
+            <span class="tooltip"><i class="fas fa-question-circle tooltip-icon" aria-hidden="true"></i>
+                <span class="tooltip-text" role="tooltip">Torrents with any of these qBittorrent tags will never be automatically deleted.</span>
+            </span>
+        </h3>
+        <p class="section-note">Torrents with any of these tags are protected.</p>
+        <div class="list-items" id="tagsList" role="list" aria-label="Protected tags"></div>
+        <div class="add-item-row">
+            <input type="text" id="newTag" placeholder="e.g., private" aria-label="New tag name">
+            <button id="addTagBtn" aria-label="Add tag">+ Add</button>
+        </div>
+    </div>
+
+    <!-- Categories -->
+    <div class="list-section" role="region" aria-labelledby="categories-heading">
+        <h3 id="categories-heading">
+            Categories
+            <span class="tooltip"><i class="fas fa-question-circle tooltip-icon" aria-hidden="true"></i>
+                <span class="tooltip-text" role="tooltip">Torrents in these qBittorrent categories are protected from automatic deletion.</span>
+            </span>
+        </h3>
+        <p class="section-note">Torrents in these qBittorrent categories are protected.</p>
+        <div class="list-items" id="categoriesList" role="list" aria-label="Protected categories"></div>
+        <div class="add-item-row">
+            <input type="text" id="newCategory" placeholder="e.g., upgraded" aria-label="New category name">
+            <button id="addCategoryBtn" aria-label="Add category">+ Add</button>
+        </div>
+    </div>
+
+    <!-- Tracker Domains -->
+    <div class="list-section" role="region" aria-labelledby="trackers-heading">
+        <h3 id="trackers-heading">
+            Tracker Domains
+            <span class="tooltip"><i class="fas fa-question-circle tooltip-icon" aria-hidden="true"></i>
+                <span class="tooltip-text" role="tooltip">Wildcards supported (e.g., *.what.cd). Torrents from these trackers are protected.</span>
+            </span>
+        </h3>
+        <p class="section-note">Wildcards supported (e.g., <code>*.what.cd</code>).</p>
+        <div class="list-items" id="trackerDomainsList" role="list" aria-label="Protected tracker domains"></div>
+        <div class="add-item-row">
+            <input type="text" id="newTrackerDomain" placeholder="e.g., *.broadcasthe.net" aria-label="New tracker domain">
+            <button id="addTrackerDomainBtn" aria-label="Add tracker domain">+ Add</button>
+        </div>
+    </div>
+
+    <!-- Dangerous Extensions -->
+    <div class="list-section" role="region" aria-labelledby="extensions-heading">
+        <h3 id="extensions-heading">
+            Dangerous Extensions
+            <span class="tooltip"><i class="fas fa-question-circle tooltip-icon" aria-hidden="true"></i>
+                <span class="tooltip-text" role="tooltip">Files with these extensions will be blocked and the torrent deleted immediately.</span>
+            </span>
+        </h3>
+        <p class="section-note">Files with these extensions will be blocked and torrent deleted.</p>
+        <div class="list-items" id="dangerousExtensionsList" role="list" aria-label="Dangerous file extensions"></div>
+        <div class="add-item-row">
+            <input type="text" id="newExtension" placeholder="e.g., .exe" aria-label="New extension">
+            <button id="addExtensionBtn" aria-label="Add extension">+ Add</button>
+        </div>
+    </div>
+
+    <div class="form-actions">
+        <button class="slide-btn" id="saveProtectionBtn" aria-label="Save protection settings">
+            <div class="slide-btn-inner default-content"><i class="far fa-save" aria-hidden="true"></i><span class="btn-text">Save Settings</span></div>
+            <div class="success-content" aria-hidden="true"><i class="fas fa-check"></i><span>Saved</span></div>
+            <div class="error-content" aria-hidden="true"><i class="fas fa-times"></i><span>Not saved</span></div>
+        </button>
+    </div>
+</div>

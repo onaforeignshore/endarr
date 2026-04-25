@@ -1,0 +1,103 @@
+<!-- ui/pages/dashboard.html -->
+
+<!-- Onboarding Banner (hidden by default) -->
+<div id="onboardingBanner" class="onboarding-banner" style="display: none;" role="alert">
+    <div class="banner-content">
+        <i class="fas fa-key" aria-hidden="true"></i>
+        <span>No API key configured. Webhooks from *Arr apps will not work.</span>
+    </div>
+    <div class="banner-actions">
+        <button id="setupApiKeyBtn" class="primary-btn">Set up now</button>
+        <button id="dismissBannerBtn" class="icon-btn" aria-label="Dismiss">×</button>
+    </div>
+</div>
+
+<div class="dashboard-grid" id="statsGrid" role="region" aria-label="Statistics">
+    <div class="stat-card" role="status" aria-live="polite">
+        <div class="stat-card-title">
+            Active Torrents
+            <span class="tooltip"><i class="fas fa-question-circle tooltip-icon" aria-hidden="true"></i>
+                <span class="tooltip-text" role="tooltip">Number of torrents currently tracked and not deleted.</span>
+            </span>
+        </div>
+        <div class="stat-card-value" id="activeTorrents" aria-live="polite">-</div>
+    </div>
+    <div class="stat-card" role="status" aria-live="polite">
+        <div class="stat-card-title">
+            Grabs (24h)
+            <span class="tooltip"><i class="fas fa-question-circle tooltip-icon" aria-hidden="true"></i>
+                <span class="tooltip-text" role="tooltip">Number of grab events received in the last 24 hours.</span>
+            </span>
+        </div>
+        <div class="stat-card-value" id="grabs24h" aria-live="polite">-</div>
+    </div>
+    <div class="stat-card" role="status" aria-live="polite">
+        <div class="stat-card-title">
+            Deletions (24h)
+            <span class="tooltip"><i class="fas fa-question-circle tooltip-icon" aria-hidden="true"></i>
+                <span class="tooltip-text" role="tooltip">Number of torrents deleted in the last 24 hours.</span>
+            </span>
+        </div>
+        <div class="stat-card-value" id="deletions24h" aria-live="polite">-</div>
+    </div>
+    <div class="stat-card" role="status" aria-live="polite">
+        <div class="stat-card-title">
+            Health
+            <span class="tooltip"><i class="fas fa-question-circle tooltip-icon" aria-hidden="true"></i>
+                <span class="tooltip-text" role="tooltip">Overall system health based on client connectivity.</span>
+            </span>
+        </div>
+        <div class="stat-card-value" id="healthStatus" aria-live="polite">-</div>
+    </div>
+</div>
+
+<div class="dashboard-section">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <h3 style="margin-bottom: 0;">Recent Activity</h3>
+        <div class="filter-dropdown-container">
+            <button id="activityFilterBtn" class="icon-btn" title="Filter activity events" aria-label="Filter activity events" aria-haspopup="menu" aria-expanded="false">
+                <i class="fas fa-sliders-h" aria-hidden="true"></i>
+            </button>
+            <div id="activityFilterDropdown" class="filter-dropdown" style="display: none;" role="menu" aria-label="Event filters">
+                <div class="filter-dropdown-header">Show events</div>
+                <label class="filter-checkbox" role="menuitemcheckbox" aria-checked="true" tabindex="0">
+                    <input type="checkbox" value="grab" checked> Grabs
+                </label>
+                <label class="filter-checkbox" role="menuitemcheckbox" aria-checked="true" tabindex="0">
+                    <input type="checkbox" value="import" checked> Imports
+                </label>
+                <label class="filter-checkbox" role="menuitemcheckbox" aria-checked="true" tabindex="0">
+                    <input type="checkbox" value="deletion" checked> Deletions
+                </label>
+                <label class="filter-checkbox" role="menuitemcheckbox" aria-checked="false" tabindex="0">
+                    <input type="checkbox" value="upgrade"> Upgrades
+                </label>
+                <label class="filter-checkbox" role="menuitemcheckbox" aria-checked="false" tabindex="0">
+                    <input type="checkbox" value="stall"> Stall Strikes
+                </label>
+                <label class="filter-checkbox" role="menuitemcheckbox" aria-checked="false" tabindex="0">
+                    <input type="checkbox" value="blacklist"> Blacklist Additions
+                </label>
+                <label class="filter-checkbox" role="menuitemcheckbox" aria-checked="false" tabindex="0">
+                    <input type="checkbox" value="malicious"> Malicious File Detections
+                </label>
+            </div>
+        </div>
+    </div>
+    <div id="recentActivityList" class="activity-list" role="feed" aria-live="polite" aria-label="Recent activity feed">
+        <div class="activity-item">Loading...</div>
+    </div>
+</div>
+
+<div class="dashboard-two-col">
+    <div class="dashboard-section">
+        <h3>System Status</h3>
+        <div id="systemStatusList" class="status-list" role="list" aria-label="System status details"></div>
+    </div>
+    <div class="dashboard-section">
+        <h3>Database Info</h3>
+        <div id="dbInfoCard" class="status-list" role="list" aria-label="Database information">
+            <div class="status-item">Loading...</div>
+        </div>
+    </div>
+</div>

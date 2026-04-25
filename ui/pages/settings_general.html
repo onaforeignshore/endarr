@@ -1,0 +1,184 @@
+<!-- ui/pages/settings_general.html -->
+
+<!-- Configuration Issues Section (hidden by default) -->
+<div id="configIssuesSection" class="settings-section" style="display: none; border-left: 4px solid var(--warning-color);">
+    <h2 style="color: var(--warning-color);">
+        <i class="fas fa-exclamation-triangle" aria-hidden="true"></i> Configuration Issues Detected
+    </h2>
+    <p class="section-note">The following issues were found in your configuration file. Invalid values have been replaced with defaults.</p>
+    <ul id="configIssuesList" style="list-style: none; padding: 0;" role="list">
+        <!-- Populated by JavaScript -->
+    </ul>
+</div>
+
+<!-- General Settings Section -->
+<div class="settings-section" aria-labelledby="general-heading">
+    <h2 id="general-heading">General</h2>
+
+    <div class="form-grid">
+        <!-- Webhook API Key -->
+        <label for="webhookKey">
+            Webhook API Key
+            <span class="tooltip"><i class="fas fa-question-circle tooltip-icon" aria-hidden="true"></i>
+                <span class="tooltip-text" role="tooltip">Used to authenticate webhook requests from ARR apps.</span>
+            </span>
+        </label>
+        <div class="input-wrapper">
+            <input type="text" id="webhookKey" data-field="webhook_key" readonly>
+            <button class="icon-btn-feedback" id="copyApiKeyBtn" title="Copy API key" aria-label="Copy API key">
+                <span class="btn-icon-wrapper">
+                    <i class="far fa-copy"></i>
+                    <i class="fas fa-check"></i>
+                    <i class="fas fa-times"></i>
+                </span>
+            </button>
+            <button class="icon-btn-feedback" id="resetApiKeyBtn" title="Reset API key" aria-label="Reset API key">
+                <span class="btn-icon-wrapper">
+                    <i class="fas fa-undo-alt"></i>
+                    <i class="fas fa-check"></i>
+                    <i class="fas fa-times"></i>
+                </span>
+            </button>
+        </div>
+        <div aria-hidden="true"></div>
+    </div>
+
+    <div class="form-grid">
+        <!-- Grabs Retention -->
+        <label for="retentionDays">
+            Grabs Retention
+            <span class="tooltip"><i class="fas fa-question-circle tooltip-icon" aria-hidden="true"></i>
+                <span class="tooltip-text" role="tooltip">How long to keep grab records in the database.</span>
+            </span>
+        </label>
+        <div class="input-wrapper">
+            <input type="text" id="retentionDays" data-field="grabs_retention_days" data-duration value="30">
+            <span class="unit-label">days</span>
+            <span class="helper-text" id="retentionDaysHelper">(30 days)</span>
+        </div>
+        <div aria-hidden="true"></div>
+        <div class="error-message" id="retentionDaysError" style="display: none;" role="alert"></div>
+    </div>
+
+    <div class="form-grid">
+        <!-- Strike Action -->
+        <label for="strikeAction">
+            Strike Action
+            <span class="tooltip"><i class="fas fa-question-circle tooltip-icon" aria-hidden="true"></i>
+                <span class="tooltip-text" role="tooltip">Action to take when strike threshold is reached.</span>
+            </span>
+        </label>
+        <div class="input-wrapper">
+            <select id="strikeAction" data-field="defaults.strike_action">
+                <option value="delete">Delete torrent</option>
+                <option value="ignore">Ignore (only log)</option>
+            </select>
+        </div>
+        <div aria-hidden="true"></div>
+    </div>
+
+    <div class="form-grid">
+        <!-- Strike Threshold -->
+        <label for="strikeThreshold">
+            Strike Threshold
+            <span class="tooltip"><i class="fas fa-question-circle tooltip-icon" aria-hidden="true"></i>
+                <span class="tooltip-text" role="tooltip">Number of consecutive stall strikes before action.</span>
+            </span>
+        </label>
+        <div class="input-wrapper">
+            <input type="number" id="strikeThreshold" data-field="defaults.strike_threshold" value="3" min="1">
+        </div>
+        <div aria-hidden="true"></div>
+        <div class="error-message" id="strikeThresholdError" style="display: none;" role="alert"></div>
+    </div>
+
+    <div class="checkbox-row">
+        <input type="checkbox" id="strikeBlacklist" data-field="defaults.strike_blacklist">
+        <label for="strikeBlacklist">Add to blacklist on strike deletion</label>
+        <span class="tooltip"><i class="fas fa-question-circle tooltip-icon" aria-hidden="true"></i>
+            <span class="tooltip-text" role="tooltip">Prevent this release from being grabbed again.</span>
+        </span>
+    </div>
+
+    <div class="form-actions">
+        <button class="slide-btn" id="saveGeneralBtn">
+            <div class="slide-btn-inner default-content"><i class="far fa-save" aria-hidden="true"></i><span class="btn-text">Save Changes</span></div>
+            <div class="success-content" aria-hidden="true"><i class="fas fa-check"></i><span>Saved</span></div>
+            <div class="error-content" aria-hidden="true"><i class="fas fa-times"></i><span>Not saved</span></div>
+        </button>
+    </div>
+</div>
+
+<!-- UI Preferences -->
+<div class="settings-section" aria-labelledby="ui-preferences-heading">
+    <h2 id="ui-preferences-heading">
+        UI Preferences
+        <span id="uiPrefsWarning" class="warning-icon" style="display: none;" title="Some confirmation dialogs are disabled">
+            <i class="fas fa-exclamation-triangle" aria-hidden="true"></i>
+        </span>
+    </h2>
+    <p class="section-note">Customize how the interface behaves.</p>
+
+    <div class="checkbox-row">
+        <input type="checkbox" id="hideUncategorizedCheck" data-field="ui_preferences.hide_uncategorized_by_default">
+        <label for="hideUncategorizedCheck">Hide uncategorized torrents by default</label>
+        <span class="tooltip"><i class="fas fa-question-circle tooltip-icon" aria-hidden="true"></i>
+            <span class="tooltip-text" role="tooltip">Torrents with no category are hidden unless you filter by "None".</span>
+        </span>
+    </div>
+
+    <div class="checkbox-row">
+        <input type="checkbox" id="confirmDataDeletionCheck" data-field="ui_preferences.confirm_data_deletion">
+        <label for="confirmDataDeletionCheck">Confirm before deleting torrents or clients</label>
+        <span class="tooltip"><i class="fas fa-question-circle tooltip-icon" aria-hidden="true"></i>
+            <span class="tooltip-text" role="tooltip">Requires confirmation to: Delete a torrent, Delete a download client, Delete an ARR client.</span>
+        </span>
+    </div>
+
+    <div class="checkbox-row">
+        <input type="checkbox" id="confirmConfigModificationCheck" data-field="ui_preferences.confirm_config_modification">
+        <label for="confirmConfigModificationCheck">Confirm before modifying configuration</label>
+        <span class="tooltip"><i class="fas fa-question-circle tooltip-icon" aria-hidden="true"></i>
+            <span class="tooltip-text" role="tooltip">Requires confirmation to: Delete an override, Remove a blacklist entry, Blacklist a torrent, Restart a watchdog, Trigger a force scan.</span>
+        </span>
+    </div>
+
+    <div class="form-grid">
+        <label for="defaultPageSize">Default items per page</label>
+        <div class="input-wrapper">
+            <select id="defaultPageSize" data-field="ui_preferences.default_page_size">
+                <option value="50">50</option>
+                <option value="100">100</option>
+                <option value="200">200</option>
+            </select>
+        </div>
+        <div aria-hidden="true"></div>
+    </div>
+
+    <div class="form-grid">
+        <label for="toastDuration">
+            Toast duration
+            <span class="tooltip"><i class="fas fa-question-circle tooltip-icon" aria-hidden="true"></i>
+                <span class="tooltip-text" role="tooltip">How long notifications stay visible.</span>
+            </span>
+        </label>
+        <div class="input-wrapper">
+            <input type="text" id="toastDuration" data-field="ui_preferences.toast_duration_seconds" data-duration value="5">
+            <span class="unit-label">seconds</span>
+            <span class="helper-text" id="toastDurationHelper">(5 seconds)</span>
+        </div>
+        <div aria-hidden="true"></div>
+        <div class="error-message" id="toastDurationError" style="display: none;" role="alert"></div>
+    </div>
+</div>
+
+<!-- Database Maintenance -->
+<div class="settings-section" aria-labelledby="db-maintenance-heading">
+    <h2 id="db-maintenance-heading">Database Maintenance</h2>
+    <p class="section-note">Backup or restore the Endarr database.</p>
+    <div style="display: flex; gap: 12px;">
+        <button id="downloadBackupBtn" class="secondary-btn"><i class="fas fa-download" aria-hidden="true"></i> Download Backup</button>
+        <button id="restoreBackupBtn" class="secondary-btn"><i class="fas fa-upload" aria-hidden="true"></i> Restore from Backup</button>
+        <input type="file" id="restoreFileInput" accept=".db" style="display: none;">
+    </div>
+</div>

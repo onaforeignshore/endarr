@@ -1,0 +1,132 @@
+/* ============================================================
+   SECTION NOTES & ACTIONS
+   ============================================================ */
+.section-note { margin-bottom: 16px; font-size: 0.85rem; color: var(--text-muted); }
+.form-actions { display: flex; justify-content: flex-start; margin-top: 16px; }
+.input-note { display: block; margin-top: 4px; font-size: 0.7rem; color: var(--text-muted); }
+
+/* ============================================================
+   *ARR-STYLE FORM GRID
+   ============================================================ */
+.form-grid {
+    display: grid; grid-template-columns: 200px 1fr auto;
+    align-items: baseline; gap: 12px 16px; margin-bottom: 16px;
+}
+.form-grid > label { text-align: right; margin: 0; padding: 8px 0; font-weight: 500; color: var(--text-secondary); font-size: 0.9rem; }
+.form-grid .input-wrapper { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.form-grid input,
+.form-grid select { width: 200px; }
+.form-grid .unit-label { color: var(--text-secondary); font-size: 0.9rem; }
+.form-grid .helper-text { color: var(--text-muted); font-size: 0.85rem; }
+.form-grid .error-message { grid-column: 2 / 4; margin-top: 4px; }
+
+/* ============================================================
+   TWO-COLUMN ADVANCED SECTION
+   ============================================================ */
+.advanced-two-col {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 20px 32px;
+    position: relative;
+}
+.advanced-two-col::after {
+    content: ''; position: absolute; top: 0; bottom: 0; left: 50%; width: 1px;
+    background: var(--border-color); transform: translateX(-50%);
+}
+
+/* ============================================================
+   PROBLEMATIC GRID
+   ============================================================ */
+.problematic-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 20px 32px;
+    position: relative; margin-bottom: 20px;
+}
+.problematic-grid::after {
+    content: ''; position: absolute; top: 0; bottom: 0; left: 50%; width: 1px;
+    background: var(--border-color); transform: translateX(-50%);
+}
+.problematic-cell { display: flex; flex-direction: column; gap: 8px; }
+.checkbox-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.checkbox-row input { width: auto; }
+.checkbox-row label { margin: 0; font-weight: 500; }
+.checkbox-row-spaced { margin-top: 20px; }
+.trigger-fields { margin-left: 0; display: flex; flex-direction: column; gap: 8px; }
+
+/* ============================================================
+   CONDITIONS LIST
+   ============================================================ */
+.conditions-header { display: flex; justify-content: space-between; align-items: center; margin: 20px 0 12px 0; }
+.conditions-header h3 { font-size: 1rem; font-weight: 600; margin: 0; }
+.conditions-list { margin-bottom: 16px; }
+.condition-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; background: var(--bg-primary); padding: 12px; border-radius: 8px; }
+.condition-row select { width: 160px; flex-shrink: 0; }
+.condition-row input { flex: 1; }
+.remove-condition { background: none; border: none; color: var(--danger-color); font-size: 1.2rem; cursor: pointer; padding: 0 8px; }
+.remove-condition:hover { color: var(--danger-hover); background: none; }
+
+.policy-tag { background: var(--accent-color); color: white; font-weight: 500; display: inline-block; width: fit-content; }
+.light-theme .policy-tag { background: var(--accent-color); color: white; }
+.policy-details { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+.conditions-block { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.condition-tag { background: var(--bg-tertiary); }
+.operator-text { color: var(--text-muted); font-weight: 600; margin: 0 2px; font-size: 0.75rem; line-height: 1.4; }
+
+/* ============================================================
+   OVERRIDE HEADER
+   ============================================================ */
+.override-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+
+/* ============================================================
+   INTEGRATIONS PAGE
+   ============================================================ */
+.integrations-subsection { margin-bottom: 32px; }
+.subsection-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+.subsection-header h3 { font-size: 1rem; font-weight: 600; margin: 0; }
+
+.clients-grid { display: flex; flex-wrap: wrap; gap: 20px; margin-top: 16px; }
+.client-card {
+    background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px;
+    padding: 16px; width: 260px; cursor: pointer; transition: all 0.2s ease; position: relative;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05); display: flex; flex-direction: column; justify-content: space-between; min-height: 120px;
+}
+.client-card:hover { background: var(--bg-tertiary); border-color: var(--accent-color); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+.client-card.add-card { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; background: var(--bg-tertiary); border: 1px dashed var(--border-color); cursor: pointer; }
+.client-card.add-card:focus-visible { outline: 2px solid var(--accent-color); outline-offset: 2px; }
+.client-card.add-card:hover { background: var(--bg-secondary); border-color: var(--accent-color); }
+.client-card.add-card i { font-size: 2rem; color: var(--accent-color); }
+.client-card .status-item { display: flex; justify-content: space-between; padding: 4px 0; font-size: 0.85rem; }
+.client-card .action-btn { background: var(--button-bg); border: none; padding: 6px 12px; border-radius: 6px; color: var(--text-primary); cursor: pointer; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 6px; }
+.client-card .action-btn:hover { background: var(--accent-color); color: white; }
+
+.card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.card-body { flex: 1; display: flex; flex-direction: column; justify-content: flex-start; }
+.card-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
+.client-name { font-weight: 600; font-size: 1rem; }
+.client-downloader,
+.client-arrs { display: flex; flex-wrap: wrap; gap: 4px; }
+.test-icon { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.9rem; padding: 4px; border-radius: 4px; }
+.test-icon:hover { color: var(--accent-color); background: var(--bg-tertiary); }
+.client-url { font-size: 0.75rem; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-bottom: 8px; }
+.status-badge { font-size: 0.75rem; font-weight: 500; line-height: 1.4; padding: 2px 8px; border-radius: 20px; background: var(--bg-tertiary); color: var(--text-secondary); display: inline-block; }
+.status-badge.disabled { background: var(--danger-color); color: white; }
+.status-badge.enabled { background: var(--success-color); color: white; }
+.status-badge.active { background: var(--accent-color); color: white; }
+.client-details { font-size: 0.75rem; color: var(--text-muted); margin-top: 4px; display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.chip { background: var(--bg-primary); padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; line-height: 1.4; display: inline-block !important; width: fit-content !important; white-space: nowrap; margin-right: 4px; margin-bottom: 4px; }
+
+/* ============================================================
+   PROTECTION & BLOCKING LISTS
+   ============================================================ */
+.list-section { margin-bottom: 32px; border-bottom: 1px solid var(--border-color); padding-bottom: 20px; }
+.list-section h3 { font-size: 1rem; font-weight: 600; margin-bottom: 8px; }
+.list-items { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+.removable-item { background: var(--bg-tertiary); padding: 4px 8px 4px 12px; border-radius: 20px; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 6px; }
+.remove-item { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.1rem; padding: 0 4px; border-radius: 50%; }
+.remove-item:hover { color: var(--danger-color); background: none; }
+.add-item-row { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
+.add-item-row input { flex: 1; max-width: 250px; }
+.add-item-row button { padding: 6px 12px; }
+
+/* ============================================================
+   MISC SETTINGS HELPERS
+   ============================================================ */
+.settings-subsection { background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 8px; padding: 20px; margin-top: 20px; }
+.indent-field input:disabled { opacity: 0.6; cursor: not-allowed; }

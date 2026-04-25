@@ -1,0 +1,65 @@
+import time
+from typing import Any, Dict
+
+
+def should_delete_torrent(torrent_info: Dict[str, Any], policy: Dict[str, Any], protected: bool,
+                                                    availability_zero_since: float = None,
+                                                    import_completed: bool = False) -> bool:
+    if protected:
+            return False
+
+    delete_policy = policy.get("delete_policy", "ratio")
+
+    # Immediate deletion: delete if import is done
+    if delete_policy == "immediate":
+        return import_completed
+
+    require_all = policy.get("require_all_conditions", False)
+
+    triggers = []
+    if delete_policy in ("ratio", "all"):
+        triggers.append("ratio")
+    if delete_policy in ("time", "all"):
+        triggers.append("time")
+    if delete_policy in ("idle", "all"):
+        triggers.append("idle")
+    if delete_policy in ("availability", "all"):
+        triggers.append("availability")
+
+    results = {}
+    now = time.time()
+
+    if "ratio" in triggers:
+        ratio_goal = policy.get("ratio_goal", 2.0)
+        current_ratio = torrent_info.get("ratio", 0.0)
+        results["ratio"] = current_ratio >= ratio_goal
+
+    if "time" in triggers:
+        seed_time_goal = policy.get("seed_time_seconds", 86400)
+        current_seeding_time = torrent_info.get("seeding_time", 0)
+        results["time"] = current_seeding_time >= seed_time_goal
+
+    if "idle" in triggers:
+        idle_goal = policy.get("idle_seconds", 3600)
+        upload_speed = torrent_info.get("upspeed", 0)
+        last_activity = torrent_info.get("last_activity", 0)
+        idle_seconds = now - last_activity if last_activity > 0 else 0
+        results["idle"] = (upload_speed == 0) and (idle_seconds >= idle_goal)
+
+    if "availability" in triggers:
+        no_avail_goal = policy.get("no_availability_seconds", 7200)
+        seeds = torrent_info.get("num_seeds", 0)
+        peers = torrent_info.get("num_peers", 0)
+        if seeds + peers == 0:
+            if availability_zero_since is None:
+                # Just became zero – not ready to delete yet
+                results["availability"] = False
+            else:
+                results["availability"] = (now - availability_zero_since) >= no_avail_goal
+        else:
+            results["availability"] = False
+
+    if require_all:
+        return all(results.values())
+    else:
+        return any(results.values())

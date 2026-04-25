@@ -1,0 +1,32 @@
+<!-- ui/pages/logs.html -->
+<div class="settings-section">
+    <h2>Logs</h2>
+    <p class="section-note">Log files are located in the <code>/data</code> directory.</p>
+
+    <div class="form-actions toolbar-spaced">
+        <button id="refreshLogsBtn" class="secondary-btn"><i class="fas fa-sync-alt" aria-hidden="true"></i> Refresh</button>
+        <button id="clearLogsBtn" class="danger-btn"><i class="fas fa-eraser" aria-hidden="true"></i> Clear</button>
+    </div>
+
+    <div class="table-scrollable" role="region" aria-label="Log files list" tabindex="0">
+        <table class="data-table" role="table" aria-label="Available log files">
+            <colgroup>
+                <col style="width: auto;">
+                <col style="width: 100px;">
+                <col style="width: 180px;">
+                <col style="width: 120px;">
+            </colgroup>
+            <thead>
+                <tr role="row">
+                    <th scope="col" role="columnheader">Filename</th>
+                    <th scope="col" role="columnheader">Size</th>
+                    <th scope="col" role="columnheader">Last Modified</th>
+                    <th scope="col" role="columnheader">Actions</th>
+                </tr>
+            </thead>
+            <tbody id="logsTableBody">
+                <tr><td colspan="4" class="loading">Loading...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>

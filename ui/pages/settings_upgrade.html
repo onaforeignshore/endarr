@@ -1,0 +1,54 @@
+<!-- ui/pages/settings_upgrade.html -->
+<div class="settings-section" aria-labelledby="upgrade-global-heading">
+    <h2 id="upgrade-global-heading">Global Upgrade Handling</h2>
+    <p class="section-note">What to do with old torrents when an upgrade is grabbed.</p>
+
+    <div class="form-grid">
+        <label for="globalUpgradeAction">
+            Upgrade Action
+            <span class="tooltip"><i class="fas fa-question-circle tooltip-icon" aria-hidden="true"></i>
+                <span class="tooltip-text" role="tooltip">What to do with the old torrent when a better version is downloaded.</span>
+            </span>
+        </label>
+        <div class="input-wrapper">
+            <select id="globalUpgradeAction" data-field="defaults.upgrade_action">
+                <option value="do_nothing">Do nothing</option>
+                <option value="move_category">Move to category</option>
+                <option value="delete_immediate">Delete immediately</option>
+            </select>
+        </div>
+        <div aria-hidden="true"></div>
+    </div>
+
+    <div class="form-grid" id="globalUpgradeCategoryGroup">
+        <label for="globalUpgradeCategory">
+            Upgrade Category
+            <span class="tooltip"><i class="fas fa-question-circle tooltip-icon" aria-hidden="true"></i>
+                <span class="tooltip-text" role="tooltip">qBittorrent category to move the old torrent to.</span>
+            </span>
+        </label>
+        <div class="input-wrapper">
+            <input type="text" id="globalUpgradeCategory" data-field="defaults.upgrade_category" value="upgraded">
+        </div>
+        <div aria-hidden="true"></div>
+        <div class="error-message" id="globalUpgradeCategoryError" style="display: none;" role="alert"></div>
+    </div>
+
+    <div class="form-actions">
+        <button class="slide-btn" id="saveUpgradeGlobalBtn">
+            <div class="slide-btn-inner default-content"><i class="far fa-save" aria-hidden="true"></i><span class="btn-text">Save Settings</span></div>
+            <div class="success-content" aria-hidden="true"><i class="fas fa-check"></i><span>Saved</span></div>
+            <div class="error-content" aria-hidden="true"><i class="fas fa-times"></i><span>Not saved</span></div>
+        </button>
+    </div>
+</div>
+
+<!-- ARR Overrides Section -->
+<div class="settings-section" aria-labelledby="upgrade-overrides-heading">
+    <h2 id="upgrade-overrides-heading">ARR Overrides</h2>
+    <p class="section-note">Override the global upgrade action for specific ARR instances.</p>
+
+    <div id="upgradeOverridesList" class="clients-grid" role="list" aria-label="ARR upgrade overrides">
+        <!-- Cards and add card will be inserted here -->
+    </div>
+</div>

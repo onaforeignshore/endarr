@@ -1,0 +1,49 @@
+# Python cache and bytecode
+__pycache__/
+*.pyc
+*.pyo
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+
+# macOS metadata
+.DS_Store
+
+# Git
+.git/
+
+# Docker related
+Dockerfile
+.dockerignore
+docker-compose*.yml
+
+# Application data (database, logs)
+data/
+
+# Real configuration file (sample provided)
+config.yaml
+
+# Development scripts
+scripts/
+makefile
+
+# Test and coverage files
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Alembic bytecode
+migrations/__pycache__/
+migrations/versions/__pycache__/
+
+# Build artefacts
+*.egg-info/
+dist/

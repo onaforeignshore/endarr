@@ -1,0 +1,38 @@
+<!-- ui/pages/settings_watchdog.html -->
+<div class="settings-section" aria-labelledby="watchdog-config-heading">
+    <h2 id="watchdog-config-heading">Watchdog Configuration</h2>
+    <p class="section-note">Configure the background monitoring loop for each download client.</p>
+
+    <div id="watchdogInstancesList" class="clients-grid" role="list" aria-label="Watchdog instances">
+        <!-- Cards will be inserted here -->
+    </div>
+</div>
+
+<!-- Global Configuration -->
+<div class="settings-section" aria-labelledby="watchdog-global-heading">
+    <h2 id="watchdog-global-heading">Global Settings</h2>
+
+    <div class="form-grid">
+        <label for="watchdogInterval">
+            Check Interval
+            <span class="tooltip"><i class="fas fa-question-circle tooltip-icon" aria-hidden="true"></i>
+                <span class="tooltip-text" role="tooltip">How often each watchdog polls its download client for changes.</span>
+            </span>
+        </label>
+        <div class="input-wrapper">
+            <input type="text" id="watchdogInterval" data-field="watchdog.interval_seconds" data-duration value="900">
+            <span class="unit-label">seconds</span>
+            <span class="helper-text" id="watchdogIntervalHelper">(15 minutes)</span>
+        </div>
+        <div aria-hidden="true"></div>
+        <div class="error-message" id="watchdogIntervalError" style="display: none;" role="alert"></div>
+    </div>
+
+    <div class="form-actions">
+        <button class="slide-btn" id="saveWatchdogBtn" aria-label="Save watchdog settings">
+            <div class="slide-btn-inner default-content"><i class="far fa-save" aria-hidden="true"></i><span class="btn-text">Save Settings</span></div>
+            <div class="success-content" aria-hidden="true"><i class="fas fa-check"></i><span>Saved</span></div>
+            <div class="error-content" aria-hidden="true"><i class="fas fa-times"></i><span>Not saved</span></div>
+        </button>
+    </div>
+</div>
