@@ -4,12 +4,13 @@ Torrent Lifecycle Manager for the \*Arr Ecosystem
 
 ## About
 
-Endarr sits between your \*Arr suite (Radarr, Sonarr, Lidarr) and your download client.
-It tracks every torrent from grab to deletion, enforces your seeding-policy rules,
-handles upgrades, blocks malicious files, and gives you a clean dashboard to monitor everything.
+Endarr sits between your \*Arr suite (Radarr, Sonarr, Lidarr) and your download client. It tracks every torrent from grab to deletion, enforces your seeding-policy rules, handles upgrades, blocks malicious files, and gives you a clean dashboard to monitor everything.
 
-Endarr runs as a single Docker container and works with any download client
-(qBittorrent, Transmission, Deluge, rTorrent, uTorrent, Flood).
+Endarr runs as a single Docker container and works with any download client (qBittorrent, Transmission, Deluge, rTorrent, uTorrent, Flood).
+
+> **⚠️ Important Notice**
+>
+> This project was created with the assistance of artificial intelligence (AI). While every effort has been made to ensure the code is functional and safe, you use this software **at your own risk**. If you do not agree with this development approach, or are not comfortable with AI‑generated code, please do not use Endarr.
 
 ## Features
 
