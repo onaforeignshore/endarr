@@ -59,3 +59,14 @@ The full user guide is available on the **[GitHub Wiki](https://github.com/onafo
 ## License
 
 Endarr is licensed under the [GNU General Public License v3.0](LICENSE).
+
+## A personal note
+
+I built Endarr because I wanted something lightweight to manage my torrents without
+having to clean up completed downloads by hand. The existing tools I tried felt
+heavier than I needed for daily use, so I started this as a small personal project.
+
+As it grew, I realised others might find it useful too — so I’m sharing it here.
+I’m a hobbyist, not a professional developer, and I’ve used AI to help me along
+the way. If that doesn’t sit right with you, no hard feelings — just skip this one
+and move on.
