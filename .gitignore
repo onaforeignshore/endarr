@@ -20,7 +20,6 @@ env/
 .git/
 
 # Docker related
-Dockerfile
 .dockerignore
 docker-compose*.yml
 
