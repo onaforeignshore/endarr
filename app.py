@@ -15,7 +15,7 @@ import tempfile
 import threading
 import time
 from functools import wraps
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 
 from config_loader import get_config_issues, load_config
 from config_loader import save_config as save_yaml_config
@@ -26,12 +26,12 @@ from models.downloads import Download
 from models.grabs import Grab
 from services.arr_client import LidarrClient, RadarrClient, SonarrClient
 from services.deluge import DelugeClient
+from services.download_client import DownloadClient
 from services.flood import FloodClient
 from services.qbittorrent import QBittorrentClient
 from services.rtorrent import RTorrentClient
 from services.transmission import TransmissionClient
 from services.utorrent import UTorrentClient
-from services.download_client import DownloadClient
 from services.watchdog import Watchdog
 from sqlalchemy import text
 from utils.logging import setup_logging
@@ -61,7 +61,6 @@ IS_DOCKER = _is_docker()
 # Setup logging first
 setup_logging()
 logger = logging.getLogger(__name__)
-
 
 # -----------------------------------------------------------------------------
 # Helper: apply sort to SQLAlchemy query
@@ -132,15 +131,15 @@ for arr in arrs_config:
     api_key = arr.get("api_key")
     if url and api_key:
         if arr_type == "sonarr":
-            client = SonarrClient(url, api_key)
+            arr_client = SonarrClient(url, api_key)
         elif arr_type == "radarr":
-            client = RadarrClient(url, api_key)
+            arr_client = RadarrClient(url, api_key)
         elif arr_type == "lidarr":
-            client = LidarrClient(url, api_key)
+            arr_client = LidarrClient(url, api_key)
         else:
             continue
         client_id = arr["id"]
-        app.config["ARR_CLIENTS"][client_id] = client
+        app.config["ARR_CLIENTS"][client_id] = arr_client
         app.config["ARR_CLIENT_NAMES"][client_id] = arr.get("name", client_id)
         logger.info("{bold}ArrClient{reset} Initialized {cyan}%s{reset} client for {cyan}%s{reset}",
                    arr.get("name"), url)
@@ -1111,7 +1110,7 @@ def api_history():
         count_params = {"event_type": event_type} if filter_clause else {}
         total = db.execute(text(count_sql), count_params).scalar()
         data_sql = f"SELECT * FROM ({union_sql}) AS all_events{filter_clause}{sort_clause} LIMIT :limit OFFSET :offset"
-        data_params = {"limit": limit, "offset": offset}
+        data_params: dict = {"limit": limit, "offset": offset}
         if filter_clause:
             data_params["event_type"] = event_type
         rows = db.execute(text(data_sql), data_params).fetchall()
