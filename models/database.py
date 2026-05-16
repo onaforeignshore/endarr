@@ -1,3 +1,5 @@
+"""Database session management and initialisation."""
+
 import os
 
 from sqlalchemy import create_engine
@@ -11,13 +13,20 @@ engine = create_engine(f"sqlite:///{DB_PATH}", connect_args={"check_same_thread"
 SessionLocal = scoped_session(sessionmaker(autocommit=False, autoflush=False, bind=engine))
 Base = declarative_base()
 
-def init_db():
-    """Create all tables if they don't exist."""
+
+def init_db() -> None:
+    """Create all database tables if they don't already exist."""
     from . import grabs, downloads, torrent_files, blacklist  # noqa
     Base.metadata.create_all(bind=engine)
 
+
 def get_db():
-    """Yield a database session for request handlers (optional)."""
+    """Yield a database session for request handlers.
+
+    Yields:
+        A SQLAlchemy session. The session is automatically closed when the
+        request context ends.
+    """
     db = SessionLocal()
     try:
         yield db

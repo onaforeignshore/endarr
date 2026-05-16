@@ -1,0 +1,32 @@
+{
+  "version": 1.1,
+  "properties": [
+    { "name": "--bg-primary", "description": "Main background" },
+    { "name": "--bg-secondary", "description": "Sidebar / top bar" },
+    { "name": "--bg-tertiary", "description": "Cards, inputs" },
+    { "name": "--text-primary", "description": "Primary text" },
+    { "name": "--text-secondary", "description": "Form labels" },
+    { "name": "--text-muted", "description": "Muted text" },
+    { "name": "--border-color", "description": "Borders" },
+    { "name": "--accent-color", "description": "Purple accent" },
+    { "name": "--accent-gradient", "description": "Purple gradient" },
+    { "name": "--card-bg", "description": "Card background" },
+    { "name": "--input-bg", "description": "Input background" },
+    { "name": "--button-bg", "description": "Button background" },
+    { "name": "--button-hover", "description": "Button hover" },
+    { "name": "--success-color", "description": "Green" },
+    { "name": "--danger-color", "description": "Red" },
+    { "name": "--danger-hover", "description": "Dark red" },
+    { "name": "--warning-color", "description": "Orange" },
+    { "name": "--selected-bg", "description": "Active nav item" },
+    { "name": "--selected-color", "description": "White text on active nav" },
+    { "name": "--selected-hover", "description": "Active nav hover" },
+    { "name": "--toolbar-bg", "description": "Toolbar background" },
+    { "name": "--hover-bg", "description": "Hover state" },
+    { "name": "--primary-btn-bg", "description": "Primary button bg" },
+    { "name": "--primary-btn-border", "description": "Primary button border" },
+    { "name": "--primary-btn-text", "description": "Primary button text" },
+    { "name": "--primary-btn-hover-bg", "description": "Primary button hover" },
+    { "name": "--primary-btn-hover-text", "description": "Primary button hover text" }
+  ]
+}

@@ -1,108 +1,16 @@
 // ui/js/blacklist.js
-import { escapeHtml, formatDate } from './utils.js'
+import { getStatusChip, getArrChipClass } from './chipStyles.js'
+import { DataTable } from './DataTable.js'
+import { openModal } from './modal.js'
+import { escapeHtml, formatDate, getApiKey, consoleDebug } from './utils.js'
+import { showToast, confirmAction } from './ui-helpers.js'
 
-let currentPage = 0
-let totalItems = 0
-let pageSize = 50
-function loadPageSize() {
-    const saved = localStorage.getItem('endarr_blacklist_page_size')
-    if (saved) {
-        pageSize = parseInt(saved, 10)
-    } else {
-        // Fallback to global default (will be set in init)
-        pageSize = 50
-    }
-    const select = document.getElementById('pageSizeSelect')
-    if (select) select.value = pageSize
-}
+/* global openModal, closeModal */
 
-function savePageSize(size) {
-    pageSize = size
-    localStorage.setItem('endarr_blacklist_page_size', size)
-    currentPage = 0
-    loadBlacklistPage(0)
-}
-
-async function loadBlacklistPage(page = 0) {
-    const key = getApiKey()
-    if (!key) return
-    const limit = pageSize
-    const offset = page * limit
-    const url = `/api/v1/blacklist?limit=${limit}&offset=${offset}`
-    try {
-        const resp = await fetch(url, { headers: { 'X-Api-Key': key } })
-        if (!resp.ok) throw new Error('Failed to fetch blacklist')
-        const data = await resp.json()
-        totalItems = data.total
-        renderBlacklistTable(data.items)
-        updatePagination(page)
-    } catch (err) {
-        console.error(err)
-        const tbody = document.getElementById('blacklistTableBody')
-        if (tbody) tbody.innerHTML = `<tr><td colspan="6">Error: ${err.message}</td></tr>`
-    }
-}
-
-function formatReason(reason) {
-    const map = {
-        slow_download: 'Slow download',
-        stalled: 'Stalled',
-        malicious_file: 'Malicious file',
-        manual: 'Manual',
-    }
-    return map[reason] || reason || '—'
-}
-
-function renderBlacklistTable(items) {
-    const tbody = document.getElementById('blacklistTableBody')
-    if (!tbody) return
-    if (!items.length) {
-        tbody.innerHTML = '<tr><td colspan="6">No blacklisted releases</td></tr>'
-        return
-    }
-    tbody.innerHTML = items
-        .map(
-            (item) => `
-        <tr role="row">
-            <td role="cell" title="${escapeHtml(item.release_title)}">${escapeHtml(item.release_title)}</td>
-            <td role="cell">${item.arr_name || 'Global'}</td>
-            <td role="cell">${formatReason(item.reason)}</td>
-            <td role="cell">${formatDate(item.blocked_at)}</td>
-            <td role="cell">${item.expires_at ? formatDate(item.expires_at) : 'Never'}</td>
-            <td role="cell">
-                <button class="action-btn delete-blacklist" data-id="${item.id}" title="Remove from blacklist" aria-label="Delete blacklist entry ${escapeHtml(item.release_title)}">
-                    <i class="fas fa-trash-alt" aria-hidden="true"></i>
-                </button>
-            </td>
-        </tr>
-    `
-        )
-        .join('')
-
-    document.querySelectorAll('.delete-blacklist').forEach((btn) => {
-        btn.addEventListener('click', async (e) => {
-            e.stopPropagation()
-            const id = btn.dataset.id
-            const confirmed = await confirmAction('config', 'Remove this entry from the blacklist?')
-            if (confirmed) {
-                await deleteBlacklistEntry(id)
-                loadBlacklistPage(currentPage)
-            }
-        })
-    })
-}
-
-function updatePagination(page) {
-    const prevBtn = document.getElementById('prevPageBl')
-    const nextBtn = document.getElementById('nextPageBl')
-    const pageInfo = document.getElementById('pageInfoBl')
-    const totalPages = Math.ceil(totalItems / 50)
-    pageInfo.innerText = `Page ${page + 1} of ${totalPages || 1}`
-    if (prevBtn) prevBtn.disabled = page === 0
-    if (nextBtn) nextBtn.disabled = page + 1 >= totalPages
-    currentPage = page
-}
-
+/**
+ * Delete a blacklist entry by ID.
+ * @param {number} id - Entry ID.
+ */
 async function deleteBlacklistEntry(id) {
     const key = getApiKey()
     try {
@@ -118,6 +26,13 @@ async function deleteBlacklistEntry(id) {
     }
 }
 
+/**
+ * Add a new blacklist entry.
+ * @param {string} title - Release title.
+ * @param {string|null} arrName - Associated ARR name (or null for global).
+ * @param {string} reason - Reason for blacklisting.
+ * @param {number|null} expiresAt - Expiration timestamp (seconds) or null.
+ */
 async function addBlacklistEntry(title, arrName, reason, expiresAt) {
     const key = getApiKey()
     try {
@@ -139,9 +54,10 @@ async function addBlacklistEntry(title, arrName, reason, expiresAt) {
     }
 }
 
-// ---- Global Modal Integration ----
+/**
+ * Open modal to add a new blacklist entry.
+ */
 async function openAddBlacklistModal() {
-    // Fetch ARR clients for dropdown
     let arrOptions = '<option value="">Global (all ARRs)</option>'
     try {
         const key = getApiKey()
@@ -210,7 +126,7 @@ async function openAddBlacklistModal() {
 
     openModal({
         title: 'Add Blacklist Entry',
-        bodyHtml: bodyHtml,
+        bodyHtml,
         buttons: [
             { text: 'Cancel', class: 'secondary-btn', onClick: () => {} },
             {
@@ -220,81 +136,156 @@ async function openAddBlacklistModal() {
                     const titleInput = document.getElementById('modalBlacklistTitle')
                     const title = titleInput.value.trim()
                     const titleError = document.getElementById('titleError')
-
                     if (!title) {
                         titleError.style.display = 'flex'
                         titleInput.focus()
-                        return false // prevent modal close
+                        return false
                     }
-
                     const arrSelect = document.getElementById('modalBlacklistArr')
                     const reasonSelect = document.getElementById('modalBlacklistReason')
                     const expirySelect = document.getElementById('modalBlacklistExpiry')
-
                     let expiresAt = null
                     if (expirySelect.value === 'custom') {
                         const days = parseInt(
                             document.getElementById('modalCustomExpiryDays').value,
                             10
                         )
-                        if (days && days > 0) {
+                        if (days && days > 0)
                             expiresAt = Math.floor(Date.now() / 1000) + days * 86400
-                        }
                     } else if (expirySelect.value) {
                         expiresAt = Math.floor(Date.now() / 1000) + parseInt(expirySelect.value, 10)
                     }
-
                     await addBlacklistEntry(
                         title,
                         arrSelect.value || null,
                         reasonSelect.value,
                         expiresAt
                     )
-                    loadBlacklistPage(0)
+                    window.blacklistDt.fetch()
                 },
             },
         ],
         onClose: () => {},
     })
 
-    // Attach behaviour: toggle custom expiry field
     const expirySelect = document.getElementById('modalBlacklistExpiry')
     const customGroup = document.getElementById('modalCustomExpiryGroup')
     expirySelect.addEventListener('change', () => {
         customGroup.style.display = expirySelect.value === 'custom' ? 'block' : 'none'
     })
-
-    // Clear error on input
     const titleInput = document.getElementById('modalBlacklistTitle')
     titleInput.addEventListener('input', () => {
         document.getElementById('titleError').style.display = 'none'
     })
 }
 
-// ---- Initialisation ----
-export async function initBlacklistPage() {
-    console.log('Initialising Blacklist page')
+/**
+ * Render the delete action button for a blacklist row.
+ * @param {number} id - Entry ID.
+ * @returns {string} HTML string.
+ */
+function renderActions(id) {
+    const safeId = escapeHtml(String(id))
+    return `<button class="action-btn delete-blacklist" data-id="${safeId}" title="Remove from blacklist" aria-label="Delete entry">
+        <i class="fas fa-trash-alt"></i>
+    </button>`
+}
 
-    // Load page size
-    const config = await loadConfig()
-    const defaultPageSize = config.ui_preferences?.default_page_size || 50
-    const saved = localStorage.getItem('endarr_blacklist_page_size')
-    pageSize = saved ? parseInt(saved, 10) : defaultPageSize
+/**
+ * Initialise the Blacklist page with a DataTable.
+ */
+export function initBlacklistPage() {
+    consoleDebug('[Blacklist] Initialising')
 
-    const addBtn = document.getElementById('addBlacklistBtn')
-    const prevBtn = document.getElementById('prevPageBl')
-    const nextBtn = document.getElementById('nextPageBl')
-    const pageSizeSelect = document.getElementById('pageSizeSelect')
+    const dt = new DataTable({
+        containerId: 'blacklistTableContainer',
+        apiPath: '/api/v1/blacklist',
+        defaultFilters: {},
+        filterConfig: false,
+        addButton: { text: 'Add Entry', onClick: () => openAddBlacklistModal() },
+        columns: [
+            {
+                key: 'release_title',
+                header: 'Release Title',
+                visible: true,
+                required: true,
+                sortable: true,
+                render: escapeHtml,
+            },
+            {
+                key: 'arr_name',
+                header: 'ARR',
+                visible: true,
+                sortable: true,
+                chip: true,
+                chipClass: (v) => getArrChipClass(v),
+            },
+            {
+                key: 'blocked_at',
+                header: 'Blocked At',
+                visible: true,
+                sortable: true,
+                render: formatDate,
+            },
+            {
+                key: 'reason',
+                header: 'Reason',
+                visible: true,
+                sortable: true,
+                chip: true,
+                chipClass: (_, row) => getStatusChip('deletion', row.reason).chipClass,
+                render: (_, row) => (row.reason ? getStatusChip('deletion', row.reason).label : ''),
+            },
+            {
+                key: 'expires_at',
+                header: 'Expires',
+                visible: true,
+                sortable: true,
+                render: (v) => (v ? formatDate(v) : 'Never'),
+            },
+            {
+                key: 'id',
+                header: 'Actions',
+                visible: true,
+                required: true,
+                sortable: false,
+                width: '80px',
+                html: true,
+                render: renderActions,
+            },
+        ],
+        pageSizeKey: 'endarr_blacklist_pageSize',
+        urlSync: true,
+        detailModal: {
+            title: 'Blacklist Entry',
+            fields: [
+                { key: 'release_title', label: 'Release Title' },
+                { key: 'arr_name', label: 'ARR', render: (v) => v || 'Global' },
+                { key: 'reason', label: 'Reason' },
+                { key: 'source', label: 'Source' },
+                { key: 'blocked_at', label: 'Blocked At', render: formatDate },
+                {
+                    key: 'expires_at',
+                    label: 'Expires',
+                    render: (v) => (v ? formatDate(v) : 'Never'),
+                },
+                { key: 'grab_id', label: 'Grab ID' },
+            ],
+        },
+    })
+    dt.init()
 
-    if (addBtn) addBtn.addEventListener('click', openAddBlacklistModal)
-    if (prevBtn) prevBtn.addEventListener('click', () => loadBlacklistPage(currentPage - 1))
-    if (nextBtn) nextBtn.addEventListener('click', () => loadBlacklistPage(currentPage + 1))
-    if (pageSizeSelect) {
-        pageSizeSelect.value = pageSize
-        pageSizeSelect.addEventListener('change', (e) => {
-            savePageSize(parseInt(e.target.value, 10))
-        })
-    }
+    dt.elements.tbody.addEventListener('click', async (e) => {
+        const btn = e.target.closest('.delete-blacklist')
+        if (!btn) return
+        e.stopPropagation()
+        const id = btn.dataset.id
+        const confirmed = await confirmAction('config', 'Remove this entry from the blacklist?')
+        if (confirmed) {
+            await deleteBlacklistEntry(id)
+            dt.fetch()
+        }
+    })
 
-    await loadBlacklistPage(0)
+    window.blacklistDt = dt
 }

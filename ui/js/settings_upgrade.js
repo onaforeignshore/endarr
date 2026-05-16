@@ -1,41 +1,38 @@
 // ui/js/settings_upgrade.js
 import { displayFormErrors } from './configValidator.js'
-import { escapeHtml } from './utils.js'
+import { openModal } from './modal.js'
+import { SettingsToolbar } from './SettingsToolbar.js'
+import { showToast, confirmAction, setupFieldErrorClearing } from './ui-helpers.js'
+import { escapeHtml, consoleDebug } from './utils.js'
 
+/**
+ * Initialise the Upgrade Handling settings page.
+ * @param {Function} loadConfig - Async function to load configuration.
+ * @param {Function} saveConfig - Async function to save configuration.
+ */
 export function initUpgradeForm(loadConfig, saveConfig) {
-    console.log('Initialising Upgrade Handling form')
+    consoleDebug('[Upgrade] Form initialised')
 
     const globalAction = document.getElementById('globalUpgradeAction')
     const globalCategoryGroup = document.getElementById('globalUpgradeCategoryGroup')
     const globalCategoryInput = document.getElementById('globalUpgradeCategory')
-    const saveGlobalBtn = document.getElementById('saveUpgradeGlobalBtn')
     const overridesList = document.getElementById('upgradeOverridesList')
 
     let arrClients = []
     let upgradeOverrides = []
 
+    /**
+     * Show/hide the global upgrade category input based on selected action.
+     */
     function toggleGlobalCategory() {
         globalCategoryGroup.style.display = globalAction.value === 'move_category' ? 'grid' : 'none'
     }
 
-    // Helper to clear error on input
-    function clearFieldErrorOnInput() {
-        document.querySelectorAll('[data-field]').forEach((input) => {
-            const handler = () => {
-                input.classList.remove('input-error')
-                input.removeAttribute('aria-describedby')
-                const errorDiv = document.getElementById(input.id + 'Error')
-                if (errorDiv) {
-                    errorDiv.style.display = 'none'
-                    errorDiv.textContent = ''
-                }
-            }
-            input.removeEventListener('input', handler)
-            input.addEventListener('input', handler)
-        })
-    }
-
-    // ---- Override cards rendering ----
+    /**
+     * Get a human-readable summary of an upgrade override for card display.
+     * @param {Object} override - The override object.
+     * @returns {string}
+     */
     function getActionSummary(override) {
         const action = override.upgrade_action
         if (action === 'do_nothing') return 'Do nothing'
@@ -44,6 +41,9 @@ export function initUpgradeForm(loadConfig, saveConfig) {
         return 'Unknown'
     }
 
+    /**
+     * Render the upgrade override cards (including add card).
+     */
     function renderOverrides() {
         if (!overridesList) return
         overridesList.innerHTML = ''
@@ -55,7 +55,6 @@ export function initUpgradeForm(loadConfig, saveConfig) {
                 override.enabled !== false
                     ? '<span class="status-badge enabled">Enabled</span>'
                     : '<span class="status-badge disabled">Disabled</span>'
-
             const card = document.createElement('div')
             card.className = 'client-card'
             card.setAttribute('role', 'listitem')
@@ -98,6 +97,10 @@ export function initUpgradeForm(loadConfig, saveConfig) {
         }
     }
 
+    /**
+     * Open the modal to add or edit an upgrade override.
+     * @param {number} index - Index in upgradeOverrides array, or -1 for new.
+     */
     function openOverrideModal(index) {
         const isEdit = index !== -1
         const override = isEdit ? upgradeOverrides[index] : null
@@ -172,14 +175,12 @@ export function initUpgradeForm(loadConfig, saveConfig) {
                         const action = document.getElementById('modalOverrideAction').value
                         const category =
                             document.getElementById('modalOverrideCategory')?.value || ''
-
                         const newOverride = {
                             arr_id: arrId,
                             enabled,
                             upgrade_action: action,
                             upgrade_category: action === 'move_category' ? category : '',
                         }
-
                         if (isEdit) {
                             upgradeOverrides[editingIndex] = newOverride
                         } else {
@@ -194,16 +195,13 @@ export function initUpgradeForm(loadConfig, saveConfig) {
             onClose: () => {},
         })
 
-        // Use requestAnimationFrame to ensure DOM is fully updated after modal insertion
         requestAnimationFrame(() => {
             requestAnimationFrame(() => {
                 const actionSelect = document.getElementById('modalOverrideAction')
                 const categoryGroup = document.getElementById('modalOverrideCategoryGroup')
                 if (actionSelect && categoryGroup) {
-                    // Set initial visibility
                     categoryGroup.style.display =
                         actionSelect.value === 'move_category' ? 'block' : 'none'
-                    // Attach change listener
                     actionSelect.addEventListener('change', () => {
                         categoryGroup.style.display =
                             actionSelect.value === 'move_category' ? 'block' : 'none'
@@ -213,6 +211,10 @@ export function initUpgradeForm(loadConfig, saveConfig) {
         })
     }
 
+    /**
+     * Persist upgrade overrides to the configuration.
+     * @returns {Promise<void>}
+     */
     async function persistOverrides() {
         const config = await loadConfig()
         if (!config.arrs_overrides) config.arrs_overrides = {}
@@ -220,8 +222,15 @@ export function initUpgradeForm(loadConfig, saveConfig) {
         await saveConfig(config)
     }
 
+    /**
+     * Load configuration and populate all form fields.
+     * @returns {Promise<void>}
+     */
     async function load() {
         const config = await loadConfig()
+        const uiPrefs = config.ui_preferences || {}
+        const initiallyAdvanced = uiPrefs.show_advanced || false
+        toolbar.setAdvancedVisible(initiallyAdvanced)
         arrClients = config.arrs || []
 
         const defaults = config.defaults || {}
@@ -233,13 +242,16 @@ export function initUpgradeForm(loadConfig, saveConfig) {
         upgradeOverrides = upgradeOverrides.map((ov) => ({ ...ov, arr_id: ov.arr_id || ov.arrId }))
         renderOverrides()
 
-        clearFieldErrorOnInput()
+        setupFieldErrorClearing(document.querySelector('#pageContent'))
     }
 
-    async function saveGlobal() {
+    /**
+     * Save upgrade handling settings.
+     * @returns {Promise<void>}
+     */
+    async function save() {
         const action = globalAction.value
         const category = globalCategoryInput.value.trim()
-
         const errors = []
         if (action === 'move_category' && !category) {
             errors.push({
@@ -247,33 +259,29 @@ export function initUpgradeForm(loadConfig, saveConfig) {
                 message: 'Category is required when action is "Move to category"',
             })
         }
-
         if (errors.length > 0) {
             displayFormErrors(errors)
             showToast('Please correct the highlighted fields.', 'error')
             return
         }
-
         const config = await loadConfig()
         if (!config.defaults) config.defaults = {}
         config.defaults.upgrade_action = action
         config.defaults.upgrade_category = action === 'move_category' ? category : ''
-        try {
-            await saveConfig(config)
-            showButtonFeedback(saveGlobalBtn, 'success', {
-                successText: 'Saved',
-                originalText: 'Save Settings',
-            })
-        } catch (err) {
-            showButtonFeedback(saveGlobalBtn, 'error', {
-                errorText: 'Not saved',
-                originalText: 'Save Settings',
-            })
-            showToast(`Save failed: ${err.message}`, 'error')
-        }
+        if (!config.ui_preferences) config.ui_preferences = {}
+        config.ui_preferences.show_advanced = toolbar._advancedVisible
+        await saveConfig(config)
     }
 
+    // Event listener for global action (only once)
     globalAction.addEventListener('change', toggleGlobalCategory)
-    saveGlobalBtn.addEventListener('click', saveGlobal)
-    load()
+
+    // Toolbar initialisation
+    const toolbar = new SettingsToolbar({
+        container: '#pageContent',
+        save,
+        showAdvanced: true,
+    })
+    toolbar.init()
+    load().then(() => toolbar.captureSnapshot())
 }

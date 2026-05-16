@@ -1,4 +1,7 @@
 <!-- ui/pages/settings_general.html -->
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+    <h2 style="margin-bottom: 0;">General</h2>
+</div>
 
 <!-- Configuration Issues Section (hidden by default) -->
 <div id="configIssuesSection" class="settings-section" style="display: none; border-left: 4px solid var(--warning-color);">
@@ -13,7 +16,7 @@
 
 <!-- General Settings Section -->
 <div class="settings-section" aria-labelledby="general-heading">
-    <h2 id="general-heading">General</h2>
+    <h2 id="general-heading">General Settings</h2>
 
     <div class="form-grid">
         <!-- Webhook API Key -->
@@ -92,20 +95,32 @@
         <div class="error-message" id="strikeThresholdError" style="display: none;" role="alert"></div>
     </div>
 
+    <div class="form-grid">
+        <!-- Log Level -->
+        <label for="logLevelSelect">
+            Log Level
+            <span class="tooltip"><i class="fas fa-question-circle tooltip-icon"></i>
+                <span class="tooltip-text">Severity of logs written to the log file.</span>
+            </span>
+        </label>
+        <div class="input-wrapper">
+            <select id="logLevelSelect" data-field="log_level">
+                <option value="DEBUG">Debug</option>
+                <option value="INFO" selected>Info</option>
+                <option value="WARNING">Warning</option>
+                <option value="ERROR">Error</option>
+                <option value="CRITICAL">Critical</option>
+            </select>
+        </div>
+        <div aria-hidden="true"></div>
+    </div>
+
     <div class="checkbox-row">
         <input type="checkbox" id="strikeBlacklist" data-field="defaults.strike_blacklist">
         <label for="strikeBlacklist">Add to blacklist on strike deletion</label>
         <span class="tooltip"><i class="fas fa-question-circle tooltip-icon" aria-hidden="true"></i>
             <span class="tooltip-text" role="tooltip">Prevent this release from being grabbed again.</span>
         </span>
-    </div>
-
-    <div class="form-actions">
-        <button class="slide-btn" id="saveGeneralBtn">
-            <div class="slide-btn-inner default-content"><i class="far fa-save" aria-hidden="true"></i><span class="btn-text">Save Changes</span></div>
-            <div class="success-content" aria-hidden="true"><i class="fas fa-check"></i><span>Saved</span></div>
-            <div class="error-content" aria-hidden="true"><i class="fas fa-times"></i><span>Not saved</span></div>
-        </button>
     </div>
 </div>
 
@@ -172,8 +187,8 @@
     </div>
 </div>
 
-<!-- Database Maintenance -->
-<div class="settings-section" aria-labelledby="db-maintenance-heading">
+<!-- Database Maintenance (Advanced) -->
+<div class="settings-section advanced-field" style="display: none;" aria-labelledby="db-maintenance-heading">
     <h2 id="db-maintenance-heading">Database Maintenance</h2>
     <p class="section-note">Backup or restore the Endarr database.</p>
     <div style="display: flex; gap: 12px;">

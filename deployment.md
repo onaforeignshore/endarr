@@ -4,10 +4,14 @@ Endarr runs as a single Docker container. You can place it behind any reverse pr
 
 ## Docker Compose Example
 
+Multi-architecture Docker images (`linux/amd64` and `linux/arm64`) are published to GitHub Container Registry. Use the following setup
+
+to pull the image:
+
 ```yaml
 services:
     endarr:
-        image: endarr:latest
+        image: ghcr.io/onaforeignshore/endarr:latest
         container_name: endarr
         restart: unless-stopped
         ports:
@@ -44,3 +48,4 @@ The container includes a healthcheck that polls `/health` every 30 seconds.
 
 - For production, generate a strong, unique `webhook_key`.
 - Multiple download clients can be configured; each has its own watchdog.
+- The multi-architecture image automatically selects the correct variant for your system.

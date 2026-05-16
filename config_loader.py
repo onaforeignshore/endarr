@@ -1,9 +1,20 @@
-# config_loader.py
+"""Configuration loading, merging, and policy resolution.
+
+Uses ruamel.yaml to preserve comments and formatting.
+"""
+
 import logging
 import os
 from copy import deepcopy
+from typing import Any, Dict, List, Optional
 
 from ruamel.yaml import YAML
+
+from config_validator import (  # noqa: F401
+    ValidationIssue,
+    normalize_config,
+    validate_config,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -12,7 +23,7 @@ yaml = YAML()
 yaml.preserve_quotes = True
 yaml.indent(mapping=2, sequence=4, offset=2)
 
-DEFAULT_CONFIG = {
+DEFAULT_CONFIG: Dict[str, Any] = {
     "webhook_key": "",
     "defaults": {
         "delete_policy": "ratio",
@@ -22,26 +33,26 @@ DEFAULT_CONFIG = {
         "strike_blacklist": False,
         "policy_blacklist": False,
         "require_all_conditions": False,
-        "ratio_goal": 2.0,               # Minimum Ratio (UI label)
+        "ratio_goal": 2.0,
         "seed_time_seconds": 86400,
-        "upload_amount_bytes": 0,        # 0 = disabled
-        "min_seeders": 0,                # 0 = disabled
+        "upload_amount_bytes": 0,
+        "min_seeders": 0,
         "idle_seconds": 3600,
         "no_availability_seconds": 7200,
         "upgrade_action": "move_category",
-        "upgrade_category": "upgraded"
+        "upgrade_category": "upgraded",
     },
     "arrs": [],
     "categories": {},
     "protection": {
         "tags": [],
         "categories": [],
-        "tracker_domains": []
+        "tracker_domains": [],
     },
     "dangerous_extensions": [".exe", ".scr", ".lnk", ".com", ".vbs", ".ps1"],
     "grabs_retention_days": 30,
     "watchdog": {
-        "interval_seconds": 900
+        "interval_seconds": 900,
     },
     "stalled_download_cleanup": {
         "enabled": False,
@@ -50,7 +61,7 @@ DEFAULT_CONFIG = {
         "min_speed_kb": 10,
         "min_speed_duration": 300,
         "action": "delete",
-        "blacklist": False
+        "blacklist": False,
     },
     "problematic_torrents": {
         "idle_enabled": False,
@@ -67,10 +78,10 @@ DEFAULT_CONFIG = {
         "search_on_delete": False,
         "policy_blacklist": False,
         "error_state_enabled": False,
-        "max_download_time_hours": 0    # 0 = disabled
+        "max_download_time_hours": 0,
     },
     "general_cleanup": {
-        "torrent_age_days": 0            # 0 = disabled
+        "torrent_age_days": 0,
     },
     "ui_preferences": {
         "show_advanced": False,
@@ -78,30 +89,38 @@ DEFAULT_CONFIG = {
         "confirm_data_deletion": True,
         "confirm_config_modification": True,
         "default_page_size": 50,
-        "toast_duration_seconds": 5
-    }
+        "toast_duration_seconds": 5,
+        "log_level": "INFO",
+    },
 }
 
-def load_config(config_path):
-    """Load config from YAML file, merging with defaults. Comments are preserved in memory."""
+_config_issues: List[ValidationIssue] = []
+
+
+def load_config(config_path: str) -> Dict[str, Any]:
+    """Load configuration from YAML file and merge with defaults.
+
+    Args:
+        config_path: Path to the YAML configuration file.
+
+    Returns:
+        Merged configuration dictionary.
+
+    Raises:
+        FileNotFoundError: If config file does not exist.
+    """
     if not os.path.exists(config_path):
         raise FileNotFoundError(f"Config file not found: {config_path}")
 
     with open(config_path, 'r') as f:
         user_config = yaml.load(f) or {}
 
-    # Keep a copy of the original user config for validation
+    # Keep a copy for validation
     user_config_copy = deepcopy(user_config)
 
     # Merge with defaults
     config = deepcopy(DEFAULT_CONFIG)
     _deep_merge(config, user_config)
-
-    from config_validator import (  # noqa: F401
-        ValidationIssue,
-        normalize_config,
-        validate_config,
-    )
 
     # Normalize the merged config
     normalize_config(config)
@@ -117,8 +136,14 @@ def load_config(config_path):
     logger.debug("{bold}Config{reset} Merged defaults with user config")
     return config
 
-def save_config(config_dict, config_path):
-    """Save config to YAML file while preserving comments and formatting."""
+
+def save_config(config_dict: Dict[str, Any], config_path: str) -> None:
+    """Save configuration to YAML file while preserving comments and formatting.
+
+    Args:
+        config_dict: The configuration dictionary to save.
+        config_path: Path to the YAML configuration file.
+    """
     # Load existing file to get its comment structure
     if os.path.exists(config_path):
         with open(config_path, 'r') as f:
@@ -134,14 +159,32 @@ def save_config(config_dict, config_path):
 
     logger.debug("{bold}Config{reset} Saved to {cyan}%s{reset}", config_path)
 
-def _deep_merge(base, updates):
+
+def _deep_merge(base: Dict[str, Any], updates: Dict[str, Any]) -> None:
+    """Recursively merge updates into base dictionary in-place.
+
+    Args:
+        base: Target dictionary.
+        updates: Source dictionary.
+    """
     for key, value in updates.items():
         if key in base and isinstance(base[key], dict) and isinstance(value, dict):
             _deep_merge(base[key], value)
         else:
             base[key] = value
 
-def get_policy_for_torrent(config, arr_id, category):
+
+def get_policy_for_torrent(config: Dict[str, Any], arr_id: Optional[str], category: str) -> Dict[str, Any]:
+    """Get the effective deletion policy for a torrent.
+
+    Args:
+        config: Full configuration dictionary.
+        arr_id: ID of the ARR client (can be None).
+        category: Torrent category.
+
+    Returns:
+        Policy dictionary with all applicable overrides.
+    """
     policy = deepcopy(config["defaults"])
     overrides = config.get("arrs_overrides", {}).get("deletion", [])
     for ov in overrides:
@@ -152,7 +195,24 @@ def get_policy_for_torrent(config, arr_id, category):
     _deep_merge(policy, cat_overrides)
     return policy
 
-def is_protected(config, torrent_tags, torrent_category, tracker_domain):
+
+def is_protected(
+    config: Dict[str, Any],
+    torrent_tags: List[str],
+    torrent_category: str,
+    tracker_domain: str,
+) -> bool:
+    """Check if a torrent is protected from automatic deletion.
+
+    Args:
+        config: Full configuration dictionary.
+        torrent_tags: List of tags on the torrent.
+        torrent_category: Category of the torrent.
+        tracker_domain: Domain of the tracker.
+
+    Returns:
+        True if torrent is protected, False otherwise.
+    """
     prot = config["protection"]
     if any(tag in prot["tags"] for tag in torrent_tags):
         return True
@@ -167,10 +227,24 @@ def is_protected(config, torrent_tags, torrent_category, tracker_domain):
             return True
     return False
 
-def get_arr_config(config, arr_name):
+
+def get_arr_config(config: Dict[str, Any], arr_name: str) -> Dict[str, Any]:
+    """Get configuration for a specific ARR.
+
+    Args:
+        config: Full configuration dictionary.
+        arr_name: Name of the ARR.
+
+    Returns:
+        ARR configuration dictionary (may be empty).
+    """
     return config.get("arrs", {}).get(arr_name, {})
 
-_config_issues = []
 
-def get_config_issues():
+def get_config_issues() -> List[ValidationIssue]:
+    """Return the list of configuration validation issues from the last load.
+
+    Returns:
+        List of ValidationIssue objects.
+    """
     return _config_issues

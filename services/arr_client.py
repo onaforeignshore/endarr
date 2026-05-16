@@ -1,3 +1,5 @@
+"""Base and specific *Arr API clients."""
+
 import logging
 from typing import Any, Dict, List, Optional
 
@@ -7,15 +9,17 @@ from urllib3.util.retry import Retry
 
 logger = logging.getLogger(__name__)
 
+
 class ArrClient:
     """Base client for *Arr APIs (Sonarr, Radarr, Lidarr)."""
 
-    def __init__(self, base_url: str, api_key: str, timeout: int = 30):
-        """
+    def __init__(self, base_url: str, api_key: str, timeout: int = 30) -> None:
+        """Initialise the ARR client.
+
         Args:
-            base_url: e.g., "http://sonarr:8989"
-            api_key: API key from the *Arr settings
-            timeout: Request timeout in seconds
+            base_url: Root URL of the *Arr service (e.g., "http://sonarr:8989").
+            api_key: API key from the *Arr settings.
+            timeout: Request timeout in seconds.
         """
         self.base_url = base_url.rstrip('/')
         self.api_key = api_key
@@ -23,6 +27,11 @@ class ArrClient:
         self.session = self._create_session()
 
     def _create_session(self) -> requests.Session:
+        """Create a requests session with retry strategy.
+
+        Returns:
+            Configured requests Session.
+        """
         session = requests.Session()
         session.headers.update({"X-Api-Key": self.api_key})
         retries = Retry(total=3, backoff_factor=0.5, status_forcelist=[500, 502, 503, 504])
@@ -31,7 +40,19 @@ class ArrClient:
         return session
 
     def _request(self, method: str, endpoint: str, **kwargs) -> Optional[Dict[str, Any]]:
-        """Make an API request and return JSON response."""
+        """Make an API request and return JSON response.
+
+        Args:
+            method: HTTP method (GET, POST, DELETE).
+            endpoint: API endpoint (e.g., "/system/status").
+            **kwargs: Additional arguments for requests.
+
+        Returns:
+            JSON response as dict, or None on error or 204 No Content.
+
+        Raises:
+            RequestException: For network errors (logged, returns None).
+        """
         url = f"{self.base_url}{endpoint}"
         try:
             resp = self.session.request(method, url, timeout=self.timeout, **kwargs)
@@ -44,15 +65,39 @@ class ArrClient:
             return None
 
     def get(self, endpoint: str, params: Optional[Dict] = None) -> Optional[Dict[str, Any]]:
-        """GET request."""
+        """Perform a GET request.
+
+        Args:
+            endpoint: API endpoint.
+            params: Query parameters.
+
+        Returns:
+            JSON response or None.
+        """
         return self._request("GET", endpoint, params=params)
 
     def post(self, endpoint: str, data: Optional[Dict] = None) -> Optional[Dict[str, Any]]:
-        """POST request."""
+        """Perform a POST request.
+
+        Args:
+            endpoint: API endpoint.
+            data: JSON payload.
+
+        Returns:
+            JSON response or None.
+        """
         return self._request("POST", endpoint, json=data)
 
     def delete(self, endpoint: str, params: Optional[Dict] = None) -> bool:
-        """DELETE request, returns True if successful (2xx)."""
+        """Perform a DELETE request.
+
+        Args:
+            endpoint: API endpoint.
+            params: Query parameters.
+
+        Returns:
+            True if successful (2xx), False otherwise.
+        """
         url = f"{self.base_url}{endpoint}"
         try:
             resp = self.session.delete(url, timeout=self.timeout, params=params)
@@ -63,9 +108,12 @@ class ArrClient:
             return False
 
     def health(self) -> bool:
-        """
-        Check if the *Arr service is reachable and API key is valid.
-        Uses `/system/status` endpoint (common across all *Arr apps).
+        """Check if the *Arr service is reachable and API key is valid.
+
+        Uses /system/status endpoint (common across all *Arr apps).
+
+        Returns:
+            True if healthy, False otherwise.
         """
         status = self.get("/system/status")
         if status and "version" in status:
@@ -73,21 +121,49 @@ class ArrClient:
             return True
         return False
 
-    # Common endpoints that work for all *Arr (override if needed)
     def get_queue(self, include_unknown: bool = True) -> Optional[List[Dict]]:
-        """Get download queue."""
+        """Get download queue.
+
+        Args:
+            include_unknown: Include unknown items.
+
+        Returns:
+            List of queue records, or None on error.
+        """
         params = {"includeUnknown": "true" if include_unknown else "false"}
         result = self.get("/queue", params=params)
         return result.get("records") if result else None
 
     def get_history(self, page: int = 1, page_size: int = 50) -> Optional[List[Dict]]:
-        """Get history (grabs, downloads, failures)."""
+        """Get history (grabs, downloads, failures).
+
+        Args:
+            page: Page number.
+            page_size: Items per page.
+
+        Returns:
+            List of history records, or None on error.
+        """
         params = {"page": page, "pageSize": page_size}
         result = self.get("/history", params=params)
         return result.get("records") if result else None
 
-    def reject_release(self, release_title: str, download_client: str = "qBittorrent", reason: str = "Blacklisted by Endarr") -> bool:
-        """Push a rejected release back to *Arr."""
+    def reject_release(
+        self,
+        release_title: str,
+        download_client: str = "qBittorrent",
+        reason: str = "Blacklisted by Endarr"
+    ) -> bool:
+        """Push a rejected release back to *Arr.
+
+        Args:
+            release_title: Title of the release to reject.
+            download_client: Name of the download client.
+            reason: Rejection reason.
+
+        Returns:
+            True if successful, False otherwise.
+        """
         payload = {
             "releaseTitle": release_title,
             "downloadClient": download_client,
@@ -102,7 +178,15 @@ class ArrClient:
         return result is not None
 
     def search_for_media(self, media_type: str, media_id: int) -> bool:
-        """Trigger a search based on media type (movie, series, album)."""
+        """Trigger a search based on media type.
+
+        Args:
+            media_type: "movie", "episode", or "album".
+            media_id: ID of the media item.
+
+        Returns:
+            True if command was accepted, False otherwise.
+        """
         if media_type == "movie":
             payload = {"name": "MoviesSearch", "movieIds": [media_id]}
             endpoint = "/command"
@@ -125,22 +209,28 @@ class ArrClient:
 class SonarrClient(ArrClient):
     """Sonarr API client (v3)."""
 
-    def __init__(self, base_url: str, api_key: str, timeout: int = 30):
+    def __init__(self, base_url: str, api_key: str, timeout: int = 30) -> None:
+        """Initialise Sonarr client.
+
+        Args:
+            base_url: Base URL of Sonarr.
+            api_key: API key.
+            timeout: Request timeout.
+        """
         super().__init__(base_url.rstrip('/'), api_key, timeout)
         self._api_version = "/api/v3"
 
     def _request(self, method: str, endpoint: str, **kwargs) -> Optional[Dict[str, Any]]:
-        # Prepend API version to endpoint
+        """Override base method to prepend API version."""
         full_endpoint = f"{self._api_version}{endpoint}" if not endpoint.startswith("/api/") else endpoint
         return super()._request(method, full_endpoint, **kwargs)
-
-    # Sonarr-specific methods can be added here
 
 
 class RadarrClient(ArrClient):
     """Radarr API client (v3)."""
 
-    def __init__(self, base_url: str, api_key: str, timeout: int = 30):
+    def __init__(self, base_url: str, api_key: str, timeout: int = 30) -> None:
+        """Initialise Radarr client."""
         super().__init__(base_url.rstrip('/'), api_key, timeout)
         self._api_version = "/api/v3"
 
@@ -148,18 +238,15 @@ class RadarrClient(ArrClient):
         full_endpoint = f"{self._api_version}{endpoint}" if not endpoint.startswith("/api/") else endpoint
         return super()._request(method, full_endpoint, **kwargs)
 
-    # Radarr-specific methods can be added here
-
 
 class LidarrClient(ArrClient):
     """Lidarr API client (v1)."""
 
-    def __init__(self, base_url: str, api_key: str, timeout: int = 30):
+    def __init__(self, base_url: str, api_key: str, timeout: int = 30) -> None:
+        """Initialise Lidarr client."""
         super().__init__(base_url.rstrip('/'), api_key, timeout)
         self._api_version = "/api/v1"
 
     def _request(self, method: str, endpoint: str, **kwargs) -> Optional[Dict[str, Any]]:
         full_endpoint = f"{self._api_version}{endpoint}" if not endpoint.startswith("/api/") else endpoint
         return super()._request(method, full_endpoint, **kwargs)
-
-    # Lidarr-specific methods can be added here

@@ -1,33 +1,36 @@
 // ui/js/logs.js
-import { escapeHtml, formatBytes, formatDate } from './utils.js'
+import { showToast, confirmAction } from './ui-helpers.js'
+import { escapeHtml, formatBytes, formatDate, getApiKey, consoleDebug } from './utils.js'
 
+/**
+ * Initialise the Logs page: display log files with download/clear options.
+ * @returns {Promise<void>}
+ */
 export async function initLogsPage() {
-    console.log('Initialising Logs page')
+    consoleDebug('[Logs] Initialising')
 
     const tbody = document.getElementById('logsTableBody')
     const refreshBtn = document.getElementById('refreshLogsBtn')
     const clearBtn = document.getElementById('clearLogsBtn')
 
+    /**
+     * Load and render the list of log files.
+     */
     async function loadLogs() {
-        const key = localStorage.getItem('endarr_api_key')
+        const key = getApiKey()
         if (!key) {
             tbody.innerHTML = '<tr><td colspan="4">No API key</td></tr>'
             return
         }
-
         try {
             const resp = await fetch('/api/v1/logs', { headers: { 'X-Api-Key': key } })
             if (!resp.ok) throw new Error('Failed to fetch log list')
             const data = await resp.json()
-
             if (!data.files || data.files.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="4">No log files found</td></tr>'
                 return
             }
-
-            tbody.innerHTML = data.files
-                .map(
-                    (file) => `
+            tbody.innerHTML = data.files.map(file => `
                 <tr role="row">
                     <td role="cell">${escapeHtml(file.name)}</td>
                     <td role="cell">${formatBytes(file.size)}</td>
@@ -38,9 +41,7 @@ export async function initLogsPage() {
                         </a>
                     </td>
                 </tr>
-            `
-                )
-                .join('')
+            `).join('')
         } catch (err) {
             tbody.innerHTML = `<tr><td colspan="4">Error: ${err.message}</td></tr>`
         }
@@ -49,7 +50,7 @@ export async function initLogsPage() {
     refreshBtn?.addEventListener('click', loadLogs)
 
     clearBtn?.addEventListener('click', async () => {
-        const key = localStorage.getItem('endarr_api_key')
+        const key = getApiKey()
         if (!key) return
         if (!(await confirmAction('config', 'Clear all log files?'))) return
         try {

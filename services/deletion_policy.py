@@ -1,12 +1,30 @@
+"""Seeding policy evaluation logic."""
+
 import time
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 
-def should_delete_torrent(torrent_info: Dict[str, Any], policy: Dict[str, Any], protected: bool,
-                                                    availability_zero_since: float = None,
-                                                    import_completed: bool = False) -> bool:
+def should_delete_torrent(
+    torrent_info: Dict[str, Any],
+    policy: Dict[str, Any],
+    protected: bool,
+    availability_zero_since: Optional[float] = None,
+    import_completed: bool = False
+) -> bool:
+    """Determine whether a torrent should be deleted based on policy.
+
+    Args:
+        torrent_info: Torrent information dictionary (ratio, seeding_time, upspeed, etc.).
+        policy: Policy configuration (delete_policy, thresholds, etc.).
+        protected: True if torrent is protected from deletion.
+        availability_zero_since: Timestamp when availability first became zero.
+        import_completed: Whether import has been completed.
+
+    Returns:
+        True if torrent should be deleted, False otherwise.
+    """
     if protected:
-            return False
+        return False
 
     delete_policy = policy.get("delete_policy", "ratio")
 
@@ -52,7 +70,6 @@ def should_delete_torrent(torrent_info: Dict[str, Any], policy: Dict[str, Any], 
         peers = torrent_info.get("num_peers", 0)
         if seeds + peers == 0:
             if availability_zero_since is None:
-                # Just became zero – not ready to delete yet
                 results["availability"] = False
             else:
                 results["availability"] = (now - availability_zero_since) >= no_avail_goal

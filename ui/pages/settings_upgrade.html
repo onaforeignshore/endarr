@@ -1,4 +1,9 @@
 <!-- ui/pages/settings_upgrade.html -->
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+    <h2 style="margin-bottom: 0;">Upgrade Handling</h2>
+</div>
+
+<!-- Global Upgrade Handling Section -->
 <div class="settings-section" aria-labelledby="upgrade-global-heading">
     <h2 id="upgrade-global-heading">Global Upgrade Handling</h2>
     <p class="section-note">What to do with old torrents when an upgrade is grabbed.</p>
@@ -33,18 +38,10 @@
         <div aria-hidden="true"></div>
         <div class="error-message" id="globalUpgradeCategoryError" style="display: none;" role="alert"></div>
     </div>
-
-    <div class="form-actions">
-        <button class="slide-btn" id="saveUpgradeGlobalBtn">
-            <div class="slide-btn-inner default-content"><i class="far fa-save" aria-hidden="true"></i><span class="btn-text">Save Settings</span></div>
-            <div class="success-content" aria-hidden="true"><i class="fas fa-check"></i><span>Saved</span></div>
-            <div class="error-content" aria-hidden="true"><i class="fas fa-times"></i><span>Not saved</span></div>
-        </button>
-    </div>
 </div>
 
-<!-- ARR Overrides Section -->
-<div class="settings-section" aria-labelledby="upgrade-overrides-heading">
+<!-- ARR Overrides Section (Advanced) -->
+<div class="settings-section advanced-field" style="display: none;" aria-labelledby="upgrade-overrides-heading">
     <h2 id="upgrade-overrides-heading">ARR Overrides</h2>
     <p class="section-note">Override the global upgrade action for specific ARR instances.</p>
 

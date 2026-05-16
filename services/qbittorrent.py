@@ -1,4 +1,5 @@
-# services/qbittorrent.py
+"""qBittorrent client implementation."""
+
 import logging
 import time
 from typing import Any, Dict, List, Optional
@@ -11,8 +12,27 @@ from services.download_client import DownloadClient
 
 logger = logging.getLogger(__name__)
 
+
 class QBittorrentClient(DownloadClient):
-    def __init__(self, host: str, port: int, username: str, password: str, timeout: int = 10):
+    """qBittorrent API client."""
+
+    def __init__(
+        self,
+        host: str,
+        port: int,
+        username: str,
+        password: str,
+        timeout: int = 10,
+    ) -> None:
+        """Initialise the qBittorrent client.
+
+        Args:
+            host: Hostname or IP address.
+            port: Port number (usually 8080).
+            username: Username for authentication.
+            password: Password for authentication.
+            timeout: Request timeout in seconds.
+        """
         self.host = host
         self.port = port
         self.base_url = f"http://{host}:{port}"
@@ -23,19 +43,21 @@ class QBittorrentClient(DownloadClient):
         self._logged_in = False
 
     def _create_session(self) -> requests.Session:
+        """Create a requests session with retry strategy."""
         session = requests.Session()
         retries = Retry(total=2, backoff_factor=0.5, status_forcelist=[500, 502, 503, 504])
         session.mount('http://', HTTPAdapter(max_retries=retries))
         return session
 
-    def _ensure_login(self):
+    def _ensure_login(self) -> None:
+        """Authenticate with qBittorrent API."""
         if self._logged_in:
             return
         try:
             resp = self.session.post(
                 f"{self.base_url}/api/v2/auth/login",
                 data={"username": self.username, "password": self.password},
-                timeout=self.timeout
+                timeout=self.timeout,
             )
             resp.raise_for_status()
             if resp.text.strip() == "Ok.":
@@ -48,6 +70,11 @@ class QBittorrentClient(DownloadClient):
             raise
 
     def get_torrents(self) -> List[Dict[str, Any]]:
+        """Fetch all torrents from qBittorrent.
+
+        Returns:
+            List of torrent dictionaries (as returned by the API).
+        """
         self._ensure_login()
         try:
             resp = self.session.get(f"{self.base_url}/api/v2/torrents/info", timeout=self.timeout)
@@ -58,12 +85,20 @@ class QBittorrentClient(DownloadClient):
             raise
 
     def get_torrent_files(self, torrent_hash: str) -> List[Dict[str, Any]]:
+        """Get file list for a specific torrent.
+
+        Args:
+            torrent_hash: Hash of the torrent.
+
+        Returns:
+            List of file dictionaries (name, size, progress).
+        """
         self._ensure_login()
         try:
             resp = self.session.get(
                 f"{self.base_url}/api/v2/torrents/files",
                 params={"hash": torrent_hash},
-                timeout=self.timeout
+                timeout=self.timeout,
             )
             resp.raise_for_status()
             return resp.json()
@@ -71,13 +106,19 @@ class QBittorrentClient(DownloadClient):
             logger.error("{bold}QBittorrent{reset} Failed to fetch files for {cyan}%s{reset}: %s", torrent_hash, e)
             raise
 
-    def delete_torrent(self, torrent_hash: str, delete_files: bool = False):
+    def delete_torrent(self, torrent_hash: str, delete_files: bool = False) -> None:
+        """Delete a torrent.
+
+        Args:
+            torrent_hash: Hash of the torrent to delete.
+            delete_files: If True, also delete downloaded data.
+        """
         self._ensure_login()
         try:
             resp = self.session.post(
                 f"{self.base_url}/api/v2/torrents/delete",
                 data={"hashes": torrent_hash, "deleteFiles": "true" if delete_files else "false"},
-                timeout=self.timeout
+                timeout=self.timeout,
             )
             resp.raise_for_status()
             logger.info("{bold}QBittorrent{reset} Deleted torrent {cyan}%s{reset} (delete_files=%s)", torrent_hash, delete_files)
@@ -85,20 +126,19 @@ class QBittorrentClient(DownloadClient):
             logger.error("{bold}QBittorrent{reset} Failed to delete {cyan}%s{reset}: %s", torrent_hash, e)
             raise
 
-    def get_torrent_by_save_path(self, path: str) -> Optional[Dict[str, Any]]:
-        torrents = self.get_torrents()
-        for t in torrents:
-            if t.get("save_path") and path.startswith(t["save_path"]):
-                return t
-        return None
+    def set_torrent_category(self, torrent_hash: str, category: str) -> None:
+        """Set category for a torrent.
 
-    def set_torrent_category(self, torrent_hash: str, category: str):
+        Args:
+            torrent_hash: Hash of the torrent.
+            category: Category name.
+        """
         self._ensure_login()
         try:
             resp = self.session.post(
                 f"{self.base_url}/api/v2/torrents/setCategory",
                 data={"hashes": torrent_hash, "category": category},
-                timeout=self.timeout
+                timeout=self.timeout,
             )
             resp.raise_for_status()
             logger.info("{bold}QBittorrent{reset} Set category of {cyan}%s{reset} to {cyan}%s{reset}", torrent_hash, category)
@@ -107,15 +147,38 @@ class QBittorrentClient(DownloadClient):
             raise
 
     def get_torrent_trackers(self, torrent_hash: str) -> List[Dict[str, Any]]:
+        """Get tracker list for a torrent.
+
+        Args:
+            torrent_hash: Hash of the torrent.
+
+        Returns:
+            List of trackers, each with a 'url' key.
+        """
         self._ensure_login()
         try:
             resp = self.session.get(
                 f"{self.base_url}/api/v2/torrents/trackers",
                 params={"hash": torrent_hash},
-                timeout=self.timeout
+                timeout=self.timeout,
             )
             resp.raise_for_status()
             return resp.json()
         except Exception as e:
             logger.error("{bold}QBittorrent{reset} Failed to fetch trackers for {cyan}%s{reset}: %s", torrent_hash, e)
             raise
+
+    def get_torrent_by_save_path(self, path: str) -> Optional[Dict[str, Any]]:
+        """Find a torrent by its save path.
+
+        Args:
+            path: File path prefix to match.
+
+        Returns:
+            Torrent dictionary if found, else None.
+        """
+        torrents = self.get_torrents()
+        for t in torrents:
+            if t.get("save_path") and path.startswith(t["save_path"]):
+                return t
+        return None

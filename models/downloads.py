@@ -1,3 +1,5 @@
+"""Downloaded torrent tracking model."""
+
 from sqlalchemy import Boolean, Float, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -5,18 +7,20 @@ from .database import Base
 
 
 class Download(Base):
+    """Tracks a torrent from the download client (including its lifecycle)."""
+
     __tablename__ = "downloads"
 
-    hash: Mapped[str] = mapped_column(String, primary_key=True)    # torrent hash from qBittorrent
+    hash: Mapped[str] = mapped_column(String, primary_key=True)              # torrent hash from download client
     name: Mapped[str | None] = mapped_column(String, nullable=True)
     grab_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("grabs.id"), unique=True, nullable=True)
-    client_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    client_id: Mapped[str | None] = mapped_column(String, nullable=True)     # ID of the download client
     added_to_client_at: Mapped[float | None] = mapped_column(Float, nullable=True)
     import_completed_at: Mapped[float | None] = mapped_column(Float, nullable=True)
     save_path: Mapped[str | None] = mapped_column(String, nullable=True)
     total_size: Mapped[int | None] = mapped_column(Integer, nullable=True)
     category: Mapped[str | None] = mapped_column(String, nullable=True)
-    dangerous_files: Mapped[int] = mapped_column(Integer, default=0)  # 0=unchecked, 1=clean, 2=blocked
+    dangerous_files: Mapped[int] = mapped_column(Integer, default=0)         # 0=unchecked, 1=clean, 2=blocked
     stall_strikes: Mapped[int] = mapped_column(Integer, default=0)
     last_check: Mapped[float | None] = mapped_column(Float, nullable=True)
     deleted_at: Mapped[float | None] = mapped_column(Float, nullable=True)

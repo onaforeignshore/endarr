@@ -3,9 +3,8 @@ import tempfile
 
 import pytest
 import yaml
-from flask import Flask
-
 from config_loader import load_config
+from flask import Flask
 from models.database import Base, SessionLocal, engine
 from services.download_client import DownloadClient
 from services.watchdog import Watchdog
@@ -109,7 +108,8 @@ def db_session():
     Base.metadata.drop_all(bind=engine)
 
 @pytest.fixture
-def client(app, db_session, sample_config, mocker):
+def client(app, db_session, sample_config, mocker, temp_config_file):
+    os.environ["ENDARR_CONFIG_PATH"] = temp_config_file
     app.config["ENDARR_CONFIG"] = sample_config
     # Mock download client instances by name
     mock_download = mocker.Mock(spec=DownloadClient)
@@ -121,6 +121,29 @@ def client(app, db_session, sample_config, mocker):
     mocker.patch("webhook.arr_handler.SessionLocal", return_value=db_session)
     mocker.patch("app.SessionLocal", return_value=db_session)
     return app.test_client()
+
+@pytest.fixture
+def api_client(sample_config, db_session, mocker, temp_config_file):
+    """Full app test client with all routes and DB patching."""
+    import os
+    os.environ["ENDARR_CONFIG_PATH"] = temp_config_file
+    os.environ["ENDARR_DATA_DIR"] = "/tmp/endarr_test"
+
+    from app import app as real_app
+    real_app.config["TESTING"] = True
+    real_app.config["ENDARR_CONFIG"] = sample_config
+
+    # Mock download client instances
+    mock_download = mocker.Mock(spec=DownloadClient)
+    real_app.config["CLIENT_INSTANCES"] = [mock_download]
+    real_app.config["CLIENT_INSTANCES_BY_NAME"] = {"Test QBittorrent": mock_download}
+    real_app.config["ARR_CLIENTS"] = {}
+
+    # Replace SessionLocal with db_session fixture
+    mocker.patch("webhook.arr_handler.SessionLocal", return_value=db_session)
+    mocker.patch("app.SessionLocal", return_value=db_session)
+
+    return real_app.test_client()
 
 @pytest.fixture
 def watchdog(sample_config, db_session, mocker):
@@ -170,3 +193,37 @@ def temp_config_file(tmp_path):
     with open(config_path, 'w') as f:
         yaml.dump(config_data, f)
     return str(config_path)
+
+@pytest.fixture
+def sample_history_data(db_session, sample_config):
+    import time
+
+    from models.downloads import Download
+    from models.grabs import Grab
+
+    g1 = Grab(
+        release_title="Test Movie 2024",
+        arr_name="radarr",
+        grabbed_at=time.time()
+    )
+    db_session.add(g1)
+    db_session.commit()
+
+    d1 = Download(
+        hash="hash1",
+        grab_id=g1.id,
+        name="Test Movie 2024",
+        added_to_client_at=time.time(),
+        import_completed_at=time.time(),
+        deleted_at=time.time() + 100
+    )
+    d2 = Download(
+        hash="hash2",
+        grab_id=g1.id,
+        name="Test Movie 2024",
+        added_to_client_at=time.time(),
+        import_completed_at=time.time()
+    )
+    db_session.add_all([d1, d2])
+    db_session.commit()
+    return db_session

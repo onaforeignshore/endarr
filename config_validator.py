@@ -1,9 +1,7 @@
-"""
-Configuration validator for Endarr.
+"""Configuration validator for Endarr.
 
-This module provides validation of user-provided configuration values.
-Only keys explicitly set by the user are validated; missing keys are
-silently filled with defaults and do not trigger issues.
+Validates user-provided configuration values. Only keys explicitly set by the user
+are validated; missing keys are silently filled with defaults and do not trigger issues.
 """
 
 import re
@@ -20,7 +18,9 @@ STRIKE_ACTIONS = {"delete", "ignore"}
 UPGRADE_ACTIONS = {"move_category", "delete_immediate", "do_nothing"}
 ARR_TYPES = {"radarr", "sonarr", "lidarr"}
 CLIENT_TYPES = {"qbittorrent", "transmission", "deluge", "rtorrent", "utorrent", "flood"}
-PAGE_SIZES = {50, 100, 200}
+# Page size allowed range (matches DataTable input limits and column picker)
+PAGE_SIZE_MIN = 5
+PAGE_SIZE_MAX = 250
 CLEANUP_ACTIONS = {"delete", "ignore"}
 
 
@@ -29,13 +29,26 @@ CLEANUP_ACTIONS = {"delete", "ignore"}
 # ============================================================================
 
 class ValidationIssue:
-    """Represents a single configuration issue."""
-    def __init__(self, field: str, message: str, severity: str = "warning"):
+    """Represents a single configuration validation issue."""
+
+    def __init__(self, field: str, message: str, severity: str = "warning") -> None:
+        """Initialise a validation issue.
+
+        Args:
+            field: Config field path (e.g., "webhook_key").
+            message: Human-readable description.
+            severity: "warning" or "error".
+        """
         self.field = field
         self.message = message
         self.severity = severity
 
     def to_dict(self) -> Dict[str, str]:
+        """Convert to dictionary for JSON serialisation.
+
+        Returns:
+            Dictionary with keys field, message, severity.
+        """
         return {"field": self.field, "message": self.message, "severity": self.severity}
 
 
@@ -44,7 +57,14 @@ class ValidationIssue:
 # ============================================================================
 
 def normalize_dangerous_extensions(extensions: List[str]) -> List[str]:
-    """Ensure each extension starts with a dot."""
+    """Ensure each extension starts with a dot and is lowercased.
+
+    Args:
+        extensions: List of extension strings.
+
+    Returns:
+        Normalised list (e.g., [".exe", ".scr"]).
+    """
     normalized = []
     for ext in extensions:
         ext = ext.strip()
@@ -56,11 +76,16 @@ def normalize_dangerous_extensions(extensions: List[str]) -> List[str]:
 
 
 def parse_duration(value: Union[str, int, float]) -> Optional[int]:
-    """
-    Parse a duration string into seconds.
+    """Parse a duration string into seconds.
+
     Supports suffixes: d (days), h (hours), m (minutes), s (seconds).
-    Without suffix, treats as seconds.
-    Returns None if invalid.
+    Without suffix, treats as seconds. Returns None if invalid.
+
+    Args:
+        value: String like "2h", "90m", "1d 3h", or number.
+
+    Returns:
+        Seconds as integer, or None if parsing fails.
     """
     if isinstance(value, (int, float)):
         return int(value)
@@ -71,12 +96,10 @@ def parse_duration(value: Union[str, int, float]) -> Optional[int]:
     if not value:
         return None
 
-    # Check if it's a plain number
+    # Plain number
     if value.isdigit():
         return int(value)
 
-    # Parse with units
-    pattern = r'^(\d+)\s*([dhms])?$'
     total_seconds = 0
     pos = 0
 
@@ -94,14 +117,20 @@ def parse_duration(value: Union[str, int, float]) -> Optional[int]:
             total_seconds += num
         pos = match.end()
 
-    # If we consumed the entire string, success
     if pos == len(value):
         return total_seconds
     return None
 
 
 def normalize_progress(value: float) -> float:
-    """Convert percentage (>1) to fraction, clamp to [0, 1]."""
+    """Convert percentage (>1) to fraction, clamp to [0, 1].
+
+    Args:
+        value: Progress value (0.0-1.0 or 0-100).
+
+    Returns:
+        Normalised value between 0 and 1.
+    """
     if value > 1.0:
         value = value / 100.0
     return max(0.0, min(1.0, value))
@@ -111,7 +140,8 @@ def normalize_progress(value: float) -> float:
 # Helper Functions
 # ============================================================================
 
-def _add_issue(issues: List[ValidationIssue], field: str, message: str):
+def _add_issue(issues: List[ValidationIssue], field: str, message: str) -> None:
+    """Add a validation issue to the list."""
     issues.append(ValidationIssue(field, message))
 
 
@@ -152,6 +182,7 @@ def _validate_positive_float(value: Any, allow_zero: bool = True) -> bool:
 
 
 def _validate_enum(value: Any, allowed: set, field: str, issues: List[ValidationIssue]) -> bool:
+    """Validate that value is in the allowed set."""
     if value not in allowed:
         _add_issue(issues, field, f"Invalid value '{value}'. Allowed: {', '.join(sorted(allowed))}")
         return False
@@ -162,20 +193,23 @@ def _validate_enum(value: Any, allowed: set, field: str, issues: List[Validation
 # Top-Level Validators
 # ============================================================================
 
-def _validate_webhook_key(original: dict, issues: List[ValidationIssue]):
+def _validate_webhook_key(original: dict, issues: List[ValidationIssue]) -> None:
+    """Validate webhook_key length."""
     key = original.get("webhook_key", "")
     if key and len(key) < 16:
         _add_issue(issues, "webhook_key", "API key is shorter than recommended (min 16 characters)")
 
 
-def _validate_grabs_retention(original: dict, issues: List[ValidationIssue]):
+def _validate_grabs_retention(original: dict, issues: List[ValidationIssue]) -> None:
+    """Validate grabs_retention_days."""
     if "grabs_retention_days" in original:
         val = original["grabs_retention_days"]
         if not _validate_positive_int(val):
             _add_issue(issues, "grabs_retention_days", f"Must be a non-negative integer (found {val})")
 
 
-def _validate_dangerous_extensions(original: dict, issues: List[ValidationIssue]):
+def _validate_dangerous_extensions(original: dict, issues: List[ValidationIssue]) -> None:
+    """Validate dangerous_extensions list."""
     exts = original.get("dangerous_extensions", [])
     if not isinstance(exts, list):
         _add_issue(issues, "dangerous_extensions", f"Must be a list (found {type(exts).__name__})")
@@ -189,7 +223,8 @@ def _validate_dangerous_extensions(original: dict, issues: List[ValidationIssue]
 # Section Validators
 # ============================================================================
 
-def _validate_defaults(original: dict, merged: dict, issues: List[ValidationIssue]):
+def _validate_defaults(original: dict, merged: dict, issues: List[ValidationIssue]) -> None:
+    """Validate defaults section."""
     if "defaults" not in original:
         return
     orig = original["defaults"]
@@ -222,7 +257,8 @@ def _validate_defaults(original: dict, merged: dict, issues: List[ValidationIssu
                 _add_issue(issues, field, "Required when upgrade_action is 'move_category'")
 
 
-def _validate_deletion_rules(rules: Any, field: str, issues: List[ValidationIssue]):
+def _validate_deletion_rules(rules: Any, field: str, issues: List[ValidationIssue]) -> None:
+    """Validate deletion_rules structure."""
     if not isinstance(rules, dict):
         _add_issue(issues, field, "Must be a dictionary")
         return
@@ -249,7 +285,8 @@ def _validate_deletion_rules(rules: Any, field: str, issues: List[ValidationIssu
                 _add_issue(issues, f"{field}.conditions[{i}].threshold", f"Must be a non-negative integer (found {threshold})")
 
 
-def _validate_arrs(original: dict, merged: dict, issues: List[ValidationIssue]):
+def _validate_arrs(original: dict, merged: dict, issues: List[ValidationIssue]) -> None:
+    """Validate arrs list."""
     if "arrs" not in original:
         return
     arrs = original["arrs"]
@@ -264,7 +301,6 @@ def _validate_arrs(original: dict, merged: dict, issues: List[ValidationIssue]):
             continue
         field_prefix = f"arrs[{i}]"
 
-        # Required fields
         arr_id = arr.get("id")
         if not arr_id:
             _add_issue(issues, f"{field_prefix}.id", "Required field 'id' is missing")
@@ -283,7 +319,8 @@ def _validate_arrs(original: dict, merged: dict, issues: List[ValidationIssue]):
             _add_issue(issues, f"{field_prefix}.api_key", "API key cannot be empty")
 
 
-def _validate_download_clients(original: dict, merged: dict, issues: List[ValidationIssue]):
+def _validate_download_clients(original: dict, merged: dict, issues: List[ValidationIssue]) -> None:
+    """Validate download_clients list."""
     if "download_clients" not in original:
         return
     clients = original["download_clients"]
@@ -336,7 +373,8 @@ def _validate_download_clients(original: dict, merged: dict, issues: List[Valida
                         _add_issue(issues, f"{field_prefix}.arrClientIds", f"Unknown arr_id '{arr_id}'")
 
 
-def _validate_protection(original: dict, merged: dict, issues: List[ValidationIssue]):
+def _validate_protection(original: dict, merged: dict, issues: List[ValidationIssue]) -> None:
+    """Validate protection section."""
     if "protection" not in original:
         return
     prot = original["protection"]
@@ -348,7 +386,8 @@ def _validate_protection(original: dict, merged: dict, issues: List[ValidationIs
             _add_issue(issues, f"protection.{key}", "Must be a list")
 
 
-def _validate_problematic(original: dict, merged: dict, issues: List[ValidationIssue]):
+def _validate_problematic(original: dict, merged: dict, issues: List[ValidationIssue]) -> None:
+    """Validate problematic_torrents section."""
     if "problematic_torrents" not in original:
         return
     prob = original["problematic_torrents"]
@@ -370,7 +409,8 @@ def _validate_problematic(original: dict, merged: dict, issues: List[ValidationI
                 _add_issue(issues, field, f"Must be a non-negative integer (found {value})")
 
 
-def _validate_general_cleanup(original: dict, merged: dict, issues: List[ValidationIssue]):
+def _validate_general_cleanup(original: dict, merged: dict, issues: List[ValidationIssue]) -> None:
+    """Validate general_cleanup section."""
     if "general_cleanup" not in original:
         return
     cleanup = original["general_cleanup"]
@@ -383,7 +423,8 @@ def _validate_general_cleanup(original: dict, merged: dict, issues: List[Validat
             _add_issue(issues, "general_cleanup.torrent_age_days", f"Must be a non-negative integer (found {val})")
 
 
-def _validate_watchdog(original: dict, merged: dict, issues: List[ValidationIssue]):
+def _validate_watchdog(original: dict, merged: dict, issues: List[ValidationIssue]) -> None:
+    """Validate watchdog section."""
     if "watchdog" not in original:
         return
     wd = original["watchdog"]
@@ -396,7 +437,8 @@ def _validate_watchdog(original: dict, merged: dict, issues: List[ValidationIssu
             _add_issue(issues, "watchdog.interval_seconds", f"Must be >= 60 (found {val})")
 
 
-def _validate_stalled_cleanup(original: dict, merged: dict, issues: List[ValidationIssue]):
+def _validate_stalled_cleanup(original: dict, merged: dict, issues: List[ValidationIssue]) -> None:
+    """Validate stalled_download_cleanup section."""
     if "stalled_download_cleanup" not in original:
         return
     sc = original["stalled_download_cleanup"]
@@ -419,7 +461,8 @@ def _validate_stalled_cleanup(original: dict, merged: dict, issues: List[Validat
                 _add_issue(issues, field, f"Must be a non-negative integer (found {value})")
 
 
-def _validate_ui_preferences(original: dict, merged: dict, issues: List[ValidationIssue]):
+def _validate_ui_preferences(original: dict, merged: dict, issues: List[ValidationIssue]) -> None:
+    """Validate ui_preferences section."""
     if "ui_preferences" not in original:
         return
     ui = original["ui_preferences"]
@@ -434,14 +477,15 @@ def _validate_ui_preferences(original: dict, merged: dict, issues: List[Validati
             if not isinstance(value, bool):
                 _add_issue(issues, field, f"Must be a boolean (found {value})")
         elif key == "default_page_size":
-            if value not in PAGE_SIZES:
-                _add_issue(issues, field, f"Must be one of {sorted(PAGE_SIZES)} (found {value})")
+            if not isinstance(value, int) or value < PAGE_SIZE_MIN or value > PAGE_SIZE_MAX:
+                _add_issue(issues, field, f"Must be an integer between {PAGE_SIZE_MIN} and {PAGE_SIZE_MAX} (found {value})")
         elif key == "toast_duration_seconds":
             if not _validate_positive_int(value) or (value and value < 3):
                 _add_issue(issues, field, f"Must be >= 3 (found {value})")
 
 
-def _validate_arrs_overrides(original: dict, merged: dict, issues: List[ValidationIssue]):
+def _validate_arrs_overrides(original: dict, merged: dict, issues: List[ValidationIssue]) -> None:
+    """Validate arrs_overrides section."""
     if "arrs_overrides" not in original:
         return
     overrides = original["arrs_overrides"]
@@ -489,19 +533,23 @@ def _validate_arrs_overrides(original: dict, merged: dict, issues: List[Validati
 # ============================================================================
 
 def validate_config(original: Dict[str, Any], merged: Dict[str, Any]) -> List[ValidationIssue]:
-    """
-    Validate user-provided configuration values.
+    """Validate user-provided configuration values.
+
     Only keys present in `original` are validated.
-    Returns a list of ValidationIssue objects.
+
+    Args:
+        original: User-provided config (before merging defaults).
+        merged: Fully merged config (defaults + user).
+
+    Returns:
+        List of ValidationIssue objects.
     """
     issues: List[ValidationIssue] = []
 
-    # Top-level validations
     _validate_webhook_key(original, issues)
     _validate_grabs_retention(original, issues)
     _validate_dangerous_extensions(original, issues)
 
-    # Section validations (only if section exists in original)
     _validate_defaults(original, merged, issues)
     _validate_arrs(original, merged, issues)
     _validate_download_clients(original, merged, issues)
@@ -521,9 +569,12 @@ def validate_config(original: Dict[str, Any], merged: Dict[str, Any]) -> List[Va
 # ============================================================================
 
 def normalize_config(config: Dict[str, Any]) -> None:
-    """
-    Normalize configuration values in-place.
-    This ensures the merged config has consistent types and formats.
+    """Normalize configuration values in-place.
+
+    Ensures consistent types and formats.
+
+    Args:
+        config: Configuration dictionary (will be modified).
     """
     # Normalize dangerous extensions
     if "dangerous_extensions" in config:

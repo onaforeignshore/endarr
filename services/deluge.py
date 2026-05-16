@@ -1,7 +1,7 @@
-# services/deluge.py
+"""Deluge client implementation."""
+
 import logging
 from typing import Any, Dict, List, Optional
-from base64 import b64encode
 
 from deluge_client import DelugeRPCClient
 
@@ -11,6 +11,8 @@ logger = logging.getLogger(__name__)
 
 
 class DelugeClient(DownloadClient):
+    """Deluge RPC client."""
+
     def __init__(
         self,
         host: str = "localhost",
@@ -18,7 +20,16 @@ class DelugeClient(DownloadClient):
         username: str = "",
         password: str = "",
         timeout: int = 10,
-    ):
+    ) -> None:
+        """Initialise the Deluge client.
+
+        Args:
+            host: Hostname or IP address.
+            port: Port number (default 58846).
+            username: Username for authentication.
+            password: Password for authentication.
+            timeout: RPC timeout in seconds.
+        """
         self.host = host
         self.port = port
         self.username = username
@@ -27,6 +38,14 @@ class DelugeClient(DownloadClient):
         self._client = None
 
     def _connect(self) -> DelugeRPCClient:
+        """Establish a connection to Deluge RPC.
+
+        Returns:
+            Connected DelugeRPCClient instance.
+
+        Raises:
+            Exception: If connection fails.
+        """
         if self._client is not None:
             return self._client
         try:
@@ -41,6 +60,11 @@ class DelugeClient(DownloadClient):
             raise
 
     def get_torrents(self) -> List[Dict[str, Any]]:
+        """Fetch all torrents from Deluge.
+
+        Returns:
+            List of torrent dictionaries with standardised keys.
+        """
         client = self._connect()
         torrents = client.call("core.get_torrents_status", {}, [
             "hash", "name", "save_path", "total_size", "time_added", "progress",
@@ -69,6 +93,14 @@ class DelugeClient(DownloadClient):
         return result
 
     def get_torrent_files(self, torrent_hash: str) -> List[Dict[str, Any]]:
+        """Get file list for a torrent.
+
+        Args:
+            torrent_hash: Hash of the torrent.
+
+        Returns:
+            List of file dictionaries with keys: name, size, progress.
+        """
         client = self._connect()
         files = client.call("core.get_torrent_status", torrent_hash, ["files"])
         result = []
@@ -81,16 +113,36 @@ class DelugeClient(DownloadClient):
         return result
 
     def delete_torrent(self, torrent_hash: str, delete_files: bool = False) -> None:
+        """Delete a torrent.
+
+        Args:
+            torrent_hash: Hash of the torrent.
+            delete_files: If True, also delete data.
+        """
         client = self._connect()
         client.call("core.remove_torrent", torrent_hash, delete_files)
         logger.info("{bold}Deluge{reset} Deleted torrent {cyan}%s{reset} (delete_files=%s)", torrent_hash, delete_files)
 
     def set_torrent_category(self, torrent_hash: str, category: str) -> None:
+        """Set torrent label (category) in Deluge.
+
+        Args:
+            torrent_hash: Hash of the torrent.
+            category: Label name.
+        """
         client = self._connect()
         client.call("core.set_torrent_label", torrent_hash, category)
         logger.info("{bold}Deluge{reset} Set label of {cyan}%s{reset} to {cyan}%s{reset}", torrent_hash, category)
 
     def get_torrent_trackers(self, torrent_hash: str) -> List[Dict[str, Any]]:
+        """Get tracker list for a torrent.
+
+        Args:
+            torrent_hash: Hash of the torrent.
+
+        Returns:
+            List of tracker dictionaries with 'url' key.
+        """
         client = self._connect()
         status = client.call("core.get_torrent_status", torrent_hash, ["trackers"])
         trackers = []
@@ -99,6 +151,14 @@ class DelugeClient(DownloadClient):
         return trackers
 
     def get_torrent_by_save_path(self, path: str) -> Optional[Dict[str, Any]]:
+        """Find torrent by save path.
+
+        Args:
+            path: File path prefix.
+
+        Returns:
+            Torrent dictionary if found, else None.
+        """
         torrents = self.get_torrents()
         for t in torrents:
             if t.get("save_path") and path.startswith(t["save_path"]):

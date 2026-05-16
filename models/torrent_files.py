@@ -1,3 +1,5 @@
+"""File list tracking for torrents."""
+
 from sqlalchemy import Boolean, Float, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -5,6 +7,8 @@ from .database import Base
 
 
 class TorrentFile(Base):
+    """Stores file information for a downloaded torrent."""
+
     __tablename__ = "torrent_files"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)

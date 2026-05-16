@@ -1,4 +1,7 @@
 <!-- ui/pages/dashboard.html -->
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+    <h2 style="margin-bottom: 0;">Dashboard</h2>
+</div>
 
 <!-- Onboarding Banner (hidden by default) -->
 <div id="onboardingBanner" class="onboarding-banner" style="display: none;" role="alert">
@@ -51,44 +54,6 @@
     </div>
 </div>
 
-<div class="dashboard-section">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-        <h3 style="margin-bottom: 0;">Recent Activity</h3>
-        <div class="filter-dropdown-container">
-            <button id="activityFilterBtn" class="icon-btn" title="Filter activity events" aria-label="Filter activity events" aria-haspopup="menu" aria-expanded="false">
-                <i class="fas fa-sliders-h" aria-hidden="true"></i>
-            </button>
-            <div id="activityFilterDropdown" class="filter-dropdown" style="display: none;" role="menu" aria-label="Event filters">
-                <div class="filter-dropdown-header">Show events</div>
-                <label class="filter-checkbox" role="menuitemcheckbox" aria-checked="true" tabindex="0">
-                    <input type="checkbox" value="grab" checked> Grabs
-                </label>
-                <label class="filter-checkbox" role="menuitemcheckbox" aria-checked="true" tabindex="0">
-                    <input type="checkbox" value="import" checked> Imports
-                </label>
-                <label class="filter-checkbox" role="menuitemcheckbox" aria-checked="true" tabindex="0">
-                    <input type="checkbox" value="deletion" checked> Deletions
-                </label>
-                <label class="filter-checkbox" role="menuitemcheckbox" aria-checked="false" tabindex="0">
-                    <input type="checkbox" value="upgrade"> Upgrades
-                </label>
-                <label class="filter-checkbox" role="menuitemcheckbox" aria-checked="false" tabindex="0">
-                    <input type="checkbox" value="stall"> Stall Strikes
-                </label>
-                <label class="filter-checkbox" role="menuitemcheckbox" aria-checked="false" tabindex="0">
-                    <input type="checkbox" value="blacklist"> Blacklist Additions
-                </label>
-                <label class="filter-checkbox" role="menuitemcheckbox" aria-checked="false" tabindex="0">
-                    <input type="checkbox" value="malicious"> Malicious File Detections
-                </label>
-            </div>
-        </div>
-    </div>
-    <div id="recentActivityList" class="activity-list" role="feed" aria-live="polite" aria-label="Recent activity feed">
-        <div class="activity-item">Loading...</div>
-    </div>
-</div>
-
 <div class="dashboard-two-col">
     <div class="dashboard-section">
         <h3>System Status</h3>
@@ -101,3 +66,5 @@
         </div>
     </div>
 </div>
+
+<div id="dashboardActivityTable"></div>

@@ -22,7 +22,6 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/ui/css/style.css">
-    <link rel="stylesheet" href="/ui/css/settings.css">
 </head>
 <body>
     <div class="sidebar" role="navigation" aria-label="Main navigation">
@@ -31,24 +30,27 @@
         </div>
         <div class="nav" role="list">
             <div class="nav-item" data-page="dashboard" role="listitem" tabindex="0" aria-current="page"><i class="fas fa-tachometer-alt" aria-hidden="true"></i><span>Dashboard</span></div>
-            <div class="nav-item" data-page="torrents" role="listitem" tabindex="0"><i class="fas fa-download" aria-hidden="true"></i><span>Torrents</span></div>
-            <div class="nav-item" data-page="grabs" role="listitem" tabindex="0"><i class="fas fa-hand-paper" aria-hidden="true"></i><span>Grabs</span></div>
-            <div class="nav-item" data-page="downloads" role="listitem" tabindex="0"><i class="fas fa-check-circle" aria-hidden="true"></i><span>Downloads</span></div>
-            <div class="nav-item" data-page="blacklist" role="listitem" tabindex="0"><i class="fas fa-ban" aria-hidden="true"></i><span>Blacklist</span></div>
+            <div class="nav-item" data-page="activity" role="listitem" tabindex="0" aria-haspopup="true" aria-expanded="false"><i class="fas fa-history" aria-hidden="true"></i><span>Activity</span></div>
+            <!-- Activity Sub‑Navigation (hidden by default) -->
+            <div id="activitySubNav" class="nav" style="display: none;" role="group" aria-label="Activity sections">
+                <div class="nav-item sub-item" data-section="activity" data-page="queue" role="listitem" tabindex="0">Queue</div>
+                <div class="nav-item sub-item" data-section="activity" data-page="history" role="listitem" tabindex="0">History</div>
+                <div class="nav-item sub-item" data-section="activity" data-page="blacklist" role="listitem" tabindex="0">Blacklist</div>
+            </div>
             <div class="nav-item" data-page="settings" role="listitem" tabindex="0" aria-haspopup="true" aria-expanded="false"><i class="fas fa-cog" aria-hidden="true"></i><span>Settings</span></div>
             <!-- Settings Sub‑Navigation (hidden by default) -->
             <div id="settingsSubNav" class="nav" style="display: none;" role="group" aria-label="Settings sections">
-                <div class="nav-item sub-item" data-settings-page="general" role="listitem" tabindex="0">General</div>
-                <div class="nav-item sub-item" data-settings-page="torrent" role="listitem" tabindex="0">Torrent Handling</div>
-                <div class="nav-item sub-item" data-settings-page="upgrade" role="listitem" tabindex="0">Upgrade Handling</div>
-                <div class="nav-item sub-item" data-settings-page="protection" role="listitem" tabindex="0">Protection & Blocking</div>
-                <div class="nav-item sub-item" data-settings-page="integrations" role="listitem" tabindex="0">Integrations</div>
-                <div class="nav-item sub-item" data-settings-page="watchdog" role="listitem" tabindex="0">Watchdog</div>
+                <div class="nav-item sub-item" data-section="settings" data-page="general" role="listitem" tabindex="0">General</div>
+                <div class="nav-item sub-item" data-section="settings" data-page="torrent" role="listitem" tabindex="0">Torrent Handling</div>
+                <div class="nav-item sub-item" data-section="settings" data-page="upgrade" role="listitem" tabindex="0">Upgrade Handling</div>
+                <div class="nav-item sub-item" data-section="settings" data-page="protection" role="listitem" tabindex="0">Protection & Blocking</div>
+                <div class="nav-item sub-item" data-section="settings" data-page="integrations" role="listitem" tabindex="0">Integrations</div>
+                <div class="nav-item sub-item" data-section="settings" data-page="watchdog" role="listitem" tabindex="0">Watchdog</div>
             </div>
             <div class="nav-item" data-page="system" role="listitem" tabindex="0" aria-haspopup="true" aria-expanded="false"><i class="fas fa-server" aria-hidden="true"></i><span>System</span></div>
             <!-- System Sub‑Navigation -->
             <div id="systemSubNav" class="nav" style="display: none;" role="group" aria-label="System sections">
-                <div class="nav-item sub-item" data-system-page="logs" role="listitem" tabindex="0">Logs</div>
+                <div class="nav-item sub-item" data-section="system" data-page="logs" role="listitem" tabindex="0">Logs</div>
             </div>
         </div>
     </div>
@@ -105,6 +107,6 @@
     </div>
 
     <script type="module" src="/ui/js/modal.js"></script>
-    <script src="/ui/js/app.js"></script>
+    <script type="module" src="/ui/js/app.js"></script>
 </body>
 </html>

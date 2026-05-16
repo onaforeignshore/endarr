@@ -1,4 +1,5 @@
-# services/flood.py
+"""Flood client implementation (REST API)."""
+
 import logging
 from typing import Any, Dict, List, Optional
 
@@ -10,6 +11,8 @@ logger = logging.getLogger(__name__)
 
 
 class FloodClient(DownloadClient):
+    """Flood API client."""
+
     def __init__(
         self,
         host: str = "localhost",
@@ -18,7 +21,17 @@ class FloodClient(DownloadClient):
         password: str = "",
         use_ssl: bool = False,
         timeout: int = 10,
-    ):
+    ) -> None:
+        """Initialise the Flood client.
+
+        Args:
+            host: Hostname or IP address.
+            port: Port number (default 3000).
+            username: Username for authentication.
+            password: Password for authentication.
+            use_ssl: Use HTTPS if True.
+            timeout: Request timeout in seconds.
+        """
         self.host = host
         self.port = port
         self.username = username
@@ -29,7 +42,8 @@ class FloodClient(DownloadClient):
         self._base_url = f"{'https' if use_ssl else 'http'}://{host}:{port}/api"
         self._authenticated = False
 
-    def _authenticate(self):
+    def _authenticate(self) -> None:
+        """Authenticate with Flood API."""
         if self._authenticated:
             return
         resp = self._session.post(
@@ -40,7 +54,17 @@ class FloodClient(DownloadClient):
         resp.raise_for_status()
         self._authenticated = True
 
-    def _request(self, method, endpoint, **kwargs):
+    def _request(self, method: str, endpoint: str, **kwargs) -> Any:
+        """Make an authenticated API request.
+
+        Args:
+            method: HTTP method (GET, POST, DELETE, etc.).
+            endpoint: API endpoint (without leading slash).
+            **kwargs: Additional arguments for requests.
+
+        Returns:
+            JSON response data.
+        """
         self._authenticate()
         url = f"{self._base_url}/{endpoint}"
         resp = self._session.request(method, url, timeout=self.timeout, **kwargs)
@@ -48,6 +72,11 @@ class FloodClient(DownloadClient):
         return resp.json()
 
     def get_torrents(self) -> List[Dict[str, Any]]:
+        """Fetch all torrents from Flood.
+
+        Returns:
+            List of torrent dictionaries with standardised keys.
+        """
         data = self._request("GET", "torrents")
         result = []
         for t in data:
@@ -71,6 +100,14 @@ class FloodClient(DownloadClient):
         return result
 
     def get_torrent_files(self, torrent_hash: str) -> List[Dict[str, Any]]:
+        """Get file list for a torrent.
+
+        Args:
+            torrent_hash: Hash of the torrent.
+
+        Returns:
+            List of file dictionaries with keys: name, size, progress.
+        """
         data = self._request("GET", f"torrents/{torrent_hash}/files")
         result = []
         for f in data:
@@ -82,6 +119,12 @@ class FloodClient(DownloadClient):
         return result
 
     def delete_torrent(self, torrent_hash: str, delete_files: bool = False) -> None:
+        """Delete a torrent.
+
+        Args:
+            torrent_hash: Hash of the torrent.
+            delete_files: If True, also delete data.
+        """
         self._request("DELETE", "torrents", json={
             "hashes": [torrent_hash],
             "deleteData": delete_files,
@@ -89,6 +132,12 @@ class FloodClient(DownloadClient):
         logger.info("{bold}Flood{reset} Deleted torrent {cyan}%s{reset} (delete_files=%s)", torrent_hash, delete_files)
 
     def set_torrent_category(self, torrent_hash: str, category: str) -> None:
+        """Set label (category) for a torrent.
+
+        Args:
+            torrent_hash: Hash of the torrent.
+            category: Category name.
+        """
         self._request("PATCH", "torrents", json={
             "hashes": [torrent_hash],
             "label": category,
@@ -96,10 +145,26 @@ class FloodClient(DownloadClient):
         logger.info("{bold}Flood{reset} Set label of {cyan}%s{reset} to {cyan}%s{reset}", torrent_hash, category)
 
     def get_torrent_trackers(self, torrent_hash: str) -> List[Dict[str, Any]]:
+        """Get tracker list for a torrent.
+
+        Args:
+            torrent_hash: Hash of the torrent.
+
+        Returns:
+            List of tracker dictionaries with 'url' key.
+        """
         data = self._request("GET", f"torrents/{torrent_hash}/trackers")
         return [{"url": t["url"]} for t in data]
 
     def get_torrent_by_save_path(self, path: str) -> Optional[Dict[str, Any]]:
+        """Find torrent by save path.
+
+        Args:
+            path: File path prefix.
+
+        Returns:
+            Torrent dictionary if found, else None.
+        """
         torrents = self.get_torrents()
         for t in torrents:
             if t.get("save_path") and path.startswith(t["save_path"]):

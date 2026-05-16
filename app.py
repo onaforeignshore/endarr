@@ -1,3 +1,9 @@
+"""Endarr Flask application.
+
+Provides REST API, webhook endpoint, configuration management,
+download client integration, and watchdog orchestration.
+"""
+
 import glob
 import logging
 import os
@@ -9,11 +15,11 @@ import tempfile
 import threading
 import time
 from functools import wraps
-
-from flask import Flask, jsonify, request, send_file, send_from_directory
+from typing import Any, Dict, List, Optional, Union
 
 from config_loader import get_config_issues, load_config
 from config_loader import save_config as save_yaml_config
+from flask import Flask, jsonify, request, send_file, send_from_directory
 from models.blacklist import Blacklist
 from models.database import SessionLocal, init_db
 from models.downloads import Download
@@ -25,27 +31,84 @@ from services.qbittorrent import QBittorrentClient
 from services.rtorrent import RTorrentClient
 from services.transmission import TransmissionClient
 from services.utorrent import UTorrentClient
+from services.download_client import DownloadClient
 from services.watchdog import Watchdog
+from sqlalchemy import text
 from utils.logging import setup_logging
 from utils.time_utils import format_duration
 from webhook.arr_handler import handle_arr_webhook
 
-# Detect Docker environment
-IS_DOCKER = os.path.exists('/.dockerenv') or any(
-    'docker' in line for line in open('/proc/1/cgroup', 'r') if 'docker' in line
-)
+# -----------------------------------------------------------------------------
+# Environment detection
+# -----------------------------------------------------------------------------
 
-# Setup coloured logging first
+def _is_docker() -> bool:
+    """Detect if running inside a Docker container.
+
+    Returns:
+        True if inside Docker, False otherwise.
+    """
+    if os.path.exists('/.dockerenv'):
+        return True
+    try:
+        with open('/proc/1/cgroup') as f:
+            return any('docker' in line for line in f)
+    except (FileNotFoundError, PermissionError):
+        return False
+
+IS_DOCKER = _is_docker()
+
+# Setup logging first
 setup_logging()
 logger = logging.getLogger(__name__)
 
+
+# -----------------------------------------------------------------------------
+# Helper: apply sort to SQLAlchemy query
+# -----------------------------------------------------------------------------
+def apply_sort(query, model, sort_by: Optional[str], sort_order: str) -> Any:
+    """Apply a sort to a SQLAlchemy query if column is allowed.
+
+    Args:
+        query: SQLAlchemy query object.
+        model: SQLAlchemy model class.
+        sort_by: Column name to sort by (must exist on model).
+        sort_order: 'asc' or 'desc'.
+
+    Returns:
+        Sorted query (original query if sort_by is invalid).
+    """
+    if not sort_by:
+        return query
+    allowed = {col.name for col in model.__table__.columns}
+    if sort_by in allowed:
+        column = getattr(model, sort_by)
+        if sort_order == 'desc':
+            return query.order_by(column.desc())
+        return query.order_by(column.asc())
+    return query
+
+
+# -----------------------------------------------------------------------------
+# Flask app initialisation
+# -----------------------------------------------------------------------------
 app = Flask(__name__)
 
-# --- Initialization (runs when gunicorn imports the module) ---
+# Load configuration
 config_path = os.getenv("ENDARR_CONFIG_PATH", "/app/config.yaml")
 try:
     config = load_config(config_path)
     app.config["ENDARR_CONFIG"] = config
+
+    # Apply persisted log level from config (overrides environment)
+    ui_prefs = config.get("ui_preferences", {})
+    desired_level = ui_prefs.get("log_level", "INFO")
+    numeric = getattr(logging, desired_level, logging.INFO)
+    root = logging.getLogger()
+    root.setLevel(numeric)
+    for handler in root.handlers:
+        handler.setLevel(numeric)
+
     logger.info("{bold}Config{reset} Loaded from {cyan}%s{reset}", config_path)
 except Exception as e:
     logger.critical("{bold}Config{reset} {red}[ERROR]{reset} Failed to load config: %s", e)
@@ -54,7 +117,9 @@ except Exception as e:
 init_db()
 logger.info("{bold}Database{reset} Initialized")
 
-# --- Load ARR clients (list) ---
+# -----------------------------------------------------------------------------
+# Load ARR clients
+# -----------------------------------------------------------------------------
 app.config["ARR_CLIENTS"] = {}
 app.config["ARR_CLIENT_NAMES"] = {}
 arrs_config = config.get("arrs", [])
@@ -77,36 +142,36 @@ for arr in arrs_config:
         client_id = arr["id"]
         app.config["ARR_CLIENTS"][client_id] = client
         app.config["ARR_CLIENT_NAMES"][client_id] = arr.get("name", client_id)
-        logger.info("{bold}ArrClient{reset} Initialized {cyan}%s{reset} client for {cyan}%s{reset}", arr.get("name"), url)
+        logger.info("{bold}ArrClient{reset} Initialized {cyan}%s{reset} client for {cyan}%s{reset}",
+                   arr.get("name"), url)
     else:
-        logger.warning("{bold}ArrClient{reset} Missing url or api_key for {cyan}%s{reset}, skipping", arr.get("name"))
+        logger.warning("{bold}ArrClient{reset} Missing url or api_key for {cyan}%s{reset}, skipping",
+                       arr.get("name"))
 
-# --- Download Clients and Watchdog ---
+# -----------------------------------------------------------------------------
+# Download clients and watchdogs
+# -----------------------------------------------------------------------------
 download_clients = config.get("download_clients", [])
 enabled_download_clients = [dl for dl in download_clients if dl.get("enabled", True)]
 
-watchdogs = []
-client_instances = []   # list of client instances
+watchdogs: List[Watchdog] = []
+client_instances: List[DownloadClient] = []
 
 if not enabled_download_clients:
     logger.warning("{bold}DownloadClient{reset} No enabled download client found. Watchdog will not start.")
 else:
     for client_config in enabled_download_clients:
         client_type = client_config.get("type")
+        client: Optional[DownloadClient] = None
 
-        # --- qBittorrent ---
         if client_type == "qbittorrent":
             host = client_config.get("host", "qbittorrent")
             port = int(client_config.get("port", 8080))
             username = client_config.get("username", "")
             password = client_config.get("password", "")
-            use_ssl = client_config.get("use_ssl", False)
             timeout = client_config.get("timeout_seconds", 10)
             client = QBittorrentClient(host, port, username, password, timeout)
-            if use_ssl:
-                logger.warning("{bold}QBittorrent{reset} SSL support requires additional configuration; ignoring use_ssl")
 
-        # --- Transmission ---
         elif client_type == "transmission":
             host = client_config.get("host", "transmission")
             port = int(client_config.get("port", 9091))
@@ -115,7 +180,6 @@ else:
             timeout = client_config.get("timeout_seconds", 10)
             client = TransmissionClient(host, port, username, password, timeout)
 
-        # --- Deluge ---
         elif client_type == "deluge":
             host = client_config.get("host", "deluge")
             port = int(client_config.get("port", 58846))
@@ -124,7 +188,6 @@ else:
             timeout = client_config.get("timeout_seconds", 10)
             client = DelugeClient(host, port, username, password, timeout)
 
-        # --- rTorrent ---
         elif client_type == "rtorrent":
             host = client_config.get("host", "rtorrent")
             port = int(client_config.get("port", 80))
@@ -135,7 +198,6 @@ else:
             timeout = client_config.get("timeout_seconds", 10)
             client = RTorrentClient(host, port, rpc_path, username, password, use_ssl, timeout)
 
-        # --- uTorrent ---
         elif client_type == "utorrent":
             host = client_config.get("host", "utorrent")
             port = int(client_config.get("port", 8080))
@@ -145,7 +207,6 @@ else:
             timeout = client_config.get("timeout_seconds", 10)
             client = UTorrentClient(host, port, username, password, use_ssl, timeout)
 
-        # --- Flood ---
         elif client_type == "flood":
             host = client_config.get("host", "flood")
             port = int(client_config.get("port", 3000))
@@ -159,23 +220,26 @@ else:
             logger.warning("{bold}DownloadClient{reset} Unsupported client type: {cyan}%s{reset}", client_type)
             continue
 
-        client_instances.append(client)
+        if client:
+            client_instances.append(client)
 
-        # Determine interval: client override or global
-        client_interval = client_config.get("watchdog_interval")
-        if client_interval is None:
-            watchdog_cfg = config.get("watchdog", {})
-            client_interval = int(watchdog_cfg.get("interval_seconds", 900))
+            # Determine interval: client override or global
+            client_interval = client_config.get("watchdog_interval")
+            if client_interval is None:
+                watchdog_cfg = config.get("watchdog", {})
+                client_interval = int(watchdog_cfg.get("interval_seconds", 900))
 
-        w = Watchdog(config, client, app.config["ARR_CLIENTS"], client_interval,
-                     client_config.get("name", client_config.get("id")),
-                     client_id=client_config.get("id"))
-        w.start()
-        watchdogs.append(w)
+            w = Watchdog(config, client, app.config["ARR_CLIENTS"],
+                         client_interval,
+                         client_config.get("name", client_config.get("id")),
+                         client_id=client_config.get("id"))
+            w.start()
+            watchdogs.append(w)
 
-        logger.info("{bold}Watchdog{reset} Started for {cyan}%s{reset} (interval={cyan}%d{reset}s)", client_config.get("name"), client_interval)
+            logger.info("{bold}Watchdog{reset} Started for {cyan}%s{reset} (interval={cyan}%d{reset}s)",
+                        client_config.get("name"), client_interval)
 
-# Store client instances for webhook access (always set, even if empty)
+# Store client instances for webhook access
 app.config["CLIENT_INSTANCES"] = client_instances
 client_instances_by_name = {}
 for client_config, client in zip(enabled_download_clients, client_instances):
@@ -183,12 +247,15 @@ for client_config, client in zip(enabled_download_clients, client_instances):
     client_instances_by_name[name] = client
 app.config["CLIENT_INSTANCES_BY_NAME"] = client_instances_by_name
 
-# ---- Download client and Arr health check ----
+# -----------------------------------------------------------------------------
+# Health checker (background thread)
+# -----------------------------------------------------------------------------
 app.config['CLIENT_HEALTH'] = {}
 app.config['ARR_HEALTH'] = {}
 
-def start_health_checker():
-    def health_check_loop():
+def start_health_checker() -> None:
+    """Start a background thread to periodically check download and ARR client health."""
+    def health_check_loop() -> None:
         while True:
             # Check download clients
             for name, client in client_instances_by_name.items():
@@ -212,8 +279,11 @@ def start_health_checker():
 
 start_health_checker()
 
-# --- Signal handlers for graceful shutdown ---
-def shutdown_gracefully(signum, frame):
+# -----------------------------------------------------------------------------
+# Shutdown signal handlers
+# -----------------------------------------------------------------------------
+def shutdown_gracefully(signum: int, frame: Any) -> None:
+    """Handle SIGTERM/SIGINT to stop watchdogs and exit cleanly."""
     logger.info("{bold}Shutdown{reset} Received signal, stopping watchdogs...")
     for w in watchdogs:
         w.stop()
@@ -226,12 +296,22 @@ signal.signal(signal.SIGINT, shutdown_gracefully)
 
 app.config["CONFIG_PATH"] = config_path
 
-# Helper to load config as dict
-def get_config():
+# -----------------------------------------------------------------------------
+# Config helpers
+# -----------------------------------------------------------------------------
+def get_config() -> Dict[str, Any]:
+    """Return the current configuration dictionary from app config."""
     return app.config["ENDARR_CONFIG"]
 
-# Helper to save config to YAML file and update in‑memory config
-def save_config(config_dict):
+def save_config(config_dict: Dict[str, Any]) -> None:
+    """Save configuration to YAML file and update in‑memory config.
+
+    Args:
+        config_dict: The configuration dictionary to save.
+
+    Raises:
+        Exception: On save failure.
+    """
     config_path = app.config.get("CONFIG_PATH", os.getenv("ENDARR_CONFIG_PATH", "/app/config.yaml"))
     try:
         save_yaml_config(config_dict, config_path)
@@ -241,8 +321,11 @@ def save_config(config_dict):
         logger.exception("{bold}Config{reset} {red}[ERROR]{reset} Failed to save config to %s: %s", config_path, e)
         raise
 
-# Authentication decorator for API endpoints (requires API key)
+# -----------------------------------------------------------------------------
+# Authentication decorator
+# -----------------------------------------------------------------------------
 def require_apikey(f):
+    """Decorator to require a valid API key for endpoints."""
     @wraps(f)
     def decorated(*args, **kwargs):
         webhook_key = get_config().get("webhook_key", "")
@@ -256,45 +339,42 @@ def require_apikey(f):
         return f(*args, **kwargs)
     return decorated
 
-# === Flask routes ===
-
-# --- Static & Core Endpoints ---
-
+# -----------------------------------------------------------------------------
+# Static & core endpoints
+# -----------------------------------------------------------------------------
 @app.route("/health", methods=["GET"])
 def health():
+    """Simple health check endpoint."""
     logger.debug("{bold}Health{reset} Check from %s", request.remote_addr)
     return jsonify({"status": "ok"}), 200
 
 @app.route('/ui')
 @app.route('/ui/<path:filename>')
-def serve_ui(filename='index.html'):
+def serve_ui(filename: str = 'index.html'):
+    """Serve static UI files."""
     return send_from_directory('ui', filename)
 
-# --- System Information Endpoints ---
-
+# -----------------------------------------------------------------------------
+# System information endpoints
+# -----------------------------------------------------------------------------
 @app.route("/api/v1/status", methods=["GET"])
 @require_apikey
 def api_status():
+    """Return system status including downloaded and ARR client health."""
     uptime_seconds = int(time.time() - start_time) if 'start_time' in globals() else 0
     uptime_str = format_duration(uptime_seconds)
 
     config = get_config()
 
-    # Build download clients status
     download_clients_status = []
     for client_config in config.get("download_clients", []):
         if not client_config.get("enabled", True):
             continue
         client_name = client_config.get("name", client_config.get("id", "Unknown"))
 
-        # Find corresponding watchdog instance
-        watchdog_instance = None
-        for w in watchdogs:
-            if w.name == client_name:
-                watchdog_instance = w
-                break
+        # Find corresponding watchdog
+        watchdog_instance = next((w for w in watchdogs if w.name == client_name), None)
 
-        # Use cached health instead of just existence check
         connected = app.config['CLIENT_HEALTH'].get(client_name, False)
         interval = watchdog_instance.interval if watchdog_instance else 0
         last_run = watchdog_instance.last_run if watchdog_instance else None
@@ -308,17 +388,13 @@ def api_status():
             "watchdog_running": running
         })
 
-    # Build ARR clients status
     arr_clients_status = []
     arr_clients_dict = app.config.get("ARR_CLIENTS", {})
     arr_client_names = app.config.get("ARR_CLIENT_NAMES", {})
     for client_id, client in arr_clients_dict.items():
         name = arr_client_names.get(client_id, client_id)
         connected = app.config['ARR_HEALTH'].get(client_id, False)
-        arr_clients_status.append({
-            "name": name,
-            "connected": connected
-        })
+        arr_clients_status.append({"name": name, "connected": connected})
 
     status = {
         "version": "0.1.0",
@@ -331,13 +407,13 @@ def api_status():
 @app.route("/api/v1/system/environment", methods=["GET"])
 @require_apikey
 def api_system_environment():
-    """Return whether we are running inside Docker."""
+    """Return whether the application is running inside Docker."""
     return jsonify({"is_docker": IS_DOCKER})
 
 @app.route("/api/v1/system/restart", methods=["POST"])
 @require_apikey
 def api_system_restart():
-    """Restart the application. Docker will replace the container if restart policy is set."""
+    """Restart the application (works in both Docker and standalone)."""
     def _restart():
         time.sleep(0.5)
         os._exit(0)
@@ -347,7 +423,7 @@ def api_system_restart():
 @app.route("/api/v1/system/shutdown", methods=["POST"])
 @require_apikey
 def api_system_shutdown():
-    """Shutdown the application. Only works when NOT running in Docker."""
+    """Shutdown the application (not allowed in Docker)."""
     if IS_DOCKER:
         return jsonify({"error": "Shutdown is not available in Docker. Use 'docker stop' instead."}), 400
     def _shutdown():
@@ -356,26 +432,70 @@ def api_system_shutdown():
     threading.Thread(target=_shutdown, daemon=True).start()
     return jsonify({"status": "shutting down"})
 
+@app.route("/api/v1/system/log-level", methods=["GET"])
+@require_apikey
+def api_get_log_level():
+    """Return the current log level of the root logger."""
+    level = logging.getLogger().getEffectiveLevel()
+    level_name = logging.getLevelName(level)
+    handler_info = [{"class": h.__class__.__name__, "level": logging.getLevelName(h.level)} for h in logging.getLogger().handlers]
+    return jsonify({"level": level_name, "handlers": handler_info})
+
+@app.route("/api/v1/system/log-level", methods=["POST"])
+@require_apikey
+def api_set_log_level():
+    """Set the log level (persists in config.yaml)."""
+    data = request.get_json()
+    new_level = data.get("level", "").upper()
+    valid_levels = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
+    if new_level not in valid_levels:
+        return jsonify({"error": f"Invalid level. Must be one of: {', '.join(valid_levels)}"}), 400
+
+    numeric_level = getattr(logging, new_level)
+    root = logging.getLogger()
+    root.setLevel(numeric_level)
+    for handler in list(root.handlers):
+        try:
+            handler.setLevel(numeric_level)
+        except Exception:
+            pass
+
+    gunicorn_logger = logging.getLogger('gunicorn.error')
+    if gunicorn_logger:
+        gunicorn_logger.setLevel(numeric_level)
+
+    # Persist in config
+    config = get_config()
+    if "ui_preferences" not in config:
+        config["ui_preferences"] = {}
+    config["ui_preferences"]["log_level"] = new_level
+    try:
+        save_config(config)
+    except Exception as e:
+        logger.error("{bold}System{reset} Failed to save log level preference: %s", e)
+
+    logger.warning("{bold}System{reset} Log level changed to {cyan}%s{reset} by %s",
+                   new_level, request.remote_addr)
+    return jsonify({"status": "ok", "level": new_level})
+
 @app.route("/api/v1/stats", methods=["GET"])
 @require_apikey
 def api_stats():
+    """Return dashboard statistics: active torrents, grabs (24h), deletions (24h)."""
     db = SessionLocal()
     try:
         active = db.query(Download).filter(Download.deleted_at.is_(None)).count()
         yesterday = time.time() - 86400
         grabs = db.query(Grab).filter(Grab.grabbed_at > yesterday).count()
         deletions = db.query(Download).filter(Download.deleted_at > yesterday).count()
-        return jsonify({
-            "active_torrents": active,
-            "grabs_24h": grabs,
-            "deletions_24h": deletions
-        })
+        return jsonify({"active_torrents": active, "grabs_24h": grabs, "deletions_24h": deletions})
     finally:
         db.close()
 
 @app.route("/api/v1/db_info", methods=["GET"])
 @require_apikey
 def api_db_info():
+    """Return database file size and record counts."""
     db = SessionLocal()
     try:
         db_path = os.getenv("ENDARR_DATA_DIR", "/data") + "/endarr.db"
@@ -386,12 +506,7 @@ def api_db_info():
         grabs_count = db.query(Grab).count()
         downloads_count = db.query(Download).count()
         blacklist_count = db.query(Blacklist).count()
-        return jsonify({
-            "size_mb": size_mb,
-            "grabs_count": grabs_count,
-            "downloads_count": downloads_count,
-            "blacklist_count": blacklist_count
-        })
+        return jsonify({"size_mb": size_mb, "grabs_count": grabs_count, "downloads_count": downloads_count, "blacklist_count": blacklist_count})
     except Exception as e:
         logger.exception("Failed to get db info")
         return jsonify({"error": str(e)}), 500
@@ -403,16 +518,12 @@ def api_db_info():
 def api_logs_list():
     """Return list of available log files with metadata."""
     log_dir = os.getenv('ENDARR_DATA_DIR', '/data')
-    log_files = sorted(glob.glob(os.path.join(log_dir, 'endarr.txt*')), key=lambda f: os.path.getmtime(f), reverse=True)
+    log_files = sorted(glob.glob(os.path.join(log_dir, 'endarr.txt*')), key=os.path.getmtime, reverse=True)
     files = []
     for path in log_files:
         try:
             st = os.stat(path)
-            files.append({
-                "name": os.path.basename(path),
-                "size": st.st_size,
-                "last_modified": st.st_mtime
-            })
+            files.append({"name": os.path.basename(path), "size": st.st_size, "last_modified": st.st_mtime})
         except OSError:
             continue
     return jsonify({"files": files})
@@ -424,7 +535,6 @@ def api_logs_download():
     filename = request.args.get('file', '')
     if not filename or '..' in filename or '/' in filename:
         return jsonify({"error": "Invalid filename"}), 400
-
     log_dir = os.getenv('ENDARR_DATA_DIR', '/data')
     file_path = os.path.join(log_dir, filename)
     if not os.path.isfile(file_path):
@@ -434,7 +544,7 @@ def api_logs_download():
 @app.route("/api/v1/logs", methods=["DELETE"])
 @require_apikey
 def api_logs_clear():
-    """Delete all log files (current and rotated). A fresh empty log file will be created."""
+    """Delete all log files (current and rotated)."""
     log_dir = os.getenv('ENDARR_DATA_DIR', '/data')
     pattern = os.path.join(log_dir, 'endarr.txt*')
     deleted = 0
@@ -444,17 +554,18 @@ def api_logs_clear():
             deleted += 1
         except OSError:
             pass
-    # Create a new empty log file
     new_log = os.path.join(log_dir, 'endarr.txt')
     with open(new_log, 'w'):
-        pass  # truncate or create
+        pass
     logger.info("{bold}API{reset} Cleared %d log file(s) by %s", deleted, request.remote_addr)
     return jsonify({"status": "ok", "deleted": deleted})
 
-# --- Configuration Endpoints ---
-
+# -----------------------------------------------------------------------------
+# Configuration endpoints
+# -----------------------------------------------------------------------------
 @app.route("/api/v1/public_key", methods=["GET"])
 def api_public_key():
+    """Return the webhook key (no authentication required)."""
     webhook_key = get_config().get("webhook_key", "")
     if webhook_key:
         logger.info("{bold}API{reset} Public key requested from {cyan}%s{reset}", request.remote_addr)
@@ -463,11 +574,10 @@ def api_public_key():
         logger.warning("{bold}API{reset} Public key requested but none configured")
         return jsonify({"webhook_key": None})
 
-# --- Protected API endpoints ---
-
 @app.route("/api/v1/config", methods=["GET"])
 @require_apikey
 def api_get_config():
+    """Return the entire configuration."""
     config = get_config()
     logger.info("{bold}API{reset} {green}[SUCCESS]{reset} Config fetched (keys: %s)", list(config.keys()))
     return jsonify(config)
@@ -475,6 +585,7 @@ def api_get_config():
 @app.route("/api/v1/config", methods=["POST"])
 @require_apikey
 def api_post_config():
+    """Save the entire configuration (must include all required keys)."""
     new_config = request.get_json()
     if not new_config:
         logger.warning("{bold}API{reset} {yellow}[BAD REQUEST]{reset} No JSON body in POST /api/v1/config from %s", request.remote_addr)
@@ -497,15 +608,12 @@ def api_post_config():
 def api_config_issues():
     """Return list of configuration validation issues."""
     issues = get_config_issues()
-    return jsonify({
-        "issues": [i.to_dict() if hasattr(i, 'to_dict') else {"field": i.field, "message": i.message} for i in issues]
-    })
+    return jsonify({"issues": [i.to_dict() if hasattr(i, 'to_dict') else {"field": i.field, "message": i.message} for i in issues]})
 
-def generate_webhook_key(length=32):
+def generate_webhook_key(length: int = 32) -> str:
     """Generate a secure random webhook key."""
     alphabet = string.ascii_letters + string.digits
     return ''.join(secrets.choice(alphabet) for _ in range(length))
-
 
 @app.route("/api/v1/webhook_key/generate", methods=["POST"])
 def api_generate_webhook_key():
@@ -514,7 +622,6 @@ def api_generate_webhook_key():
     current_key = config.get("webhook_key", "")
     if current_key:
         return jsonify({"error": "API key already exists"}), 400
-
     new_key = generate_webhook_key()
     config["webhook_key"] = new_key
     save_config(config)
@@ -525,12 +632,12 @@ def api_generate_webhook_key():
 @app.route("/api/v1/webhook_key/reset", methods=["POST"])
 @require_apikey
 def api_reset_webhook_key():
+    """Reset the webhook key to a new random value."""
     try:
         config = get_config()
         new_key = generate_webhook_key()
         config["webhook_key"] = new_key
         save_config(config)
-        # Update in‑memory config so it takes effect immediately
         app.config["ENDARR_CONFIG"]["webhook_key"] = new_key
         logger.info("{bold}API{reset} Webhook key reset by %s", request.remote_addr)
         return jsonify({"webhook_key": new_key})
@@ -538,11 +645,13 @@ def api_reset_webhook_key():
         logger.exception("Webhook key reset error")
         return jsonify({"error": str(e)}), 500
 
-# --- Client Management Endpoints ---
-
+# -----------------------------------------------------------------------------
+# Client management endpoints (test connections)
+# -----------------------------------------------------------------------------
 @app.route("/api/v1/test_arr", methods=["POST"])
 @require_apikey
 def api_test_arr():
+    """Test connection to an ARR client."""
     data = request.get_json()
     arr_type = data.get("type")
     url = data.get("url")
@@ -565,7 +674,7 @@ def api_test_arr():
             logger.info("{bold}API{reset} {green}[SUCCESS]{reset} Connection to %s at %s succeeded", arr_type, url)
             return jsonify({"status": "ok", "message": f"Connected to {arr_type} successfully"}), 200
         else:
-            logger.warning("{bold}API{reset} {yellow}[FAIL]{reset} Connection to %s at %s failed (invalid API key or unreachable)", arr_type, url)
+            logger.warning("{bold}API{reset} {yellow}[FAIL]{reset} Connection to %s at %s failed", arr_type, url)
             return jsonify({"status": "error", "message": "Invalid API key or unreachable"}), 400
     except Exception as e:
         logger.exception("{bold}API{reset} {red}[ERROR]{reset} Test connection to %s at %s failed: %s", arr_type, url, e)
@@ -574,6 +683,7 @@ def api_test_arr():
 @app.route("/api/v1/test_download_client", methods=["POST"])
 @require_apikey
 def api_test_download_client():
+    """Test connection to a download client (uses the same logic as initialisation)."""
     data = request.get_json()
     client_type = data.get("type")
 
@@ -674,7 +784,6 @@ def api_test_download_client():
             if not match:
                 return jsonify({"error": "Could not extract token"}), 400
             token = match.group(1)
-            # Verify we can fetch torrent list
             list_url = f"{protocol}://{host}:{port}/gui/"
             params = {"list": 1, "token": token}
             resp2 = session.get(list_url, params=params, auth=(username, password), timeout=10)
@@ -712,35 +821,36 @@ def api_test_download_client():
     else:
         return jsonify({"error": f"Unsupported client type: {client_type}"}), 400
 
-# --- Data Retrieval Endpoints ---
-
+# -----------------------------------------------------------------------------
+# Data retrieval endpoints
+# -----------------------------------------------------------------------------
 @app.route("/api/v1/torrents", methods=["GET"])
 @require_apikey
 def api_torrents():
+    """Return list of torrents with optional filtering and pagination."""
     db = SessionLocal()
     try:
         query = db.query(Download)
-        category = request.args.get("category")
-        exclude_empty = request.args.get("exclude_empty", "false").lower() == "true"
 
-        if exclude_empty:
-            query = query.filter(Download.category.isnot(None), Download.category != "")
-
-        if category is not None:
-            if category == "__empty__":
-                query = query.filter((Download.category == "") | (Download.category.is_(None)))
-            else:
-                query = query.filter(Download.category == category)
         status = request.args.get("status")
         if status == "active":
             query = query.filter(Download.deleted_at.is_(None))
         elif status == "deleted":
             query = query.filter(Download.deleted_at.isnot(None))
+
+        arr_name = request.args.get("arr_name")
+        if arr_name:
+            query = query.join(Grab, Download.grab_id == Grab.id, isouter=True).filter(Grab.arr_name == arr_name)
+
+        sort_by = request.args.get("sort_by", "")
+        sort_order = request.args.get("sort_order", "asc")
+        query = apply_sort(query, Download, sort_by, sort_order)
+
         limit = request.args.get("limit", default=100, type=int)
         offset = request.args.get("offset", default=0, type=int)
-        query = query.order_by(Download.added_to_client_at.desc())
         total = query.count()
         items = query.offset(offset).limit(limit).all()
+
         result = []
         for d in items:
             grab = db.query(Grab).filter(Grab.id == d.grab_id).first()
@@ -749,22 +859,48 @@ def api_torrents():
                 "name": d.name or (grab.release_title if grab else None) or d.hash,
                 "category": d.category,
                 "client_id": d.client_id,
+                "arr_name": grab.arr_name if grab else None,
                 "added_to_client_at": d.added_to_client_at,
                 "import_completed_at": d.import_completed_at,
                 "deleted_at": d.deleted_at,
                 "delete_reason": d.delete_reason,
                 "dangerous_files": d.dangerous_files,
                 "stall_strikes": d.stall_strikes,
+                "total_size": d.total_size or 0,
+                "save_path": d.save_path or "",
+                "state": "",
                 "protected": False
             })
         return jsonify({"total": total, "items": result})
     finally:
         db.close()
 
+@app.route("/api/v1/torrents/<hash>/import", methods=["POST"])
+@require_apikey
+def api_mark_torrent_imported(hash: str):
+    """Manually mark a torrent as imported."""
+    db = SessionLocal()
+    try:
+        download = db.query(Download).filter(Download.hash == hash).first()
+        if not download:
+            return jsonify({"error": "Torrent not found"}), 404
+        if download.deleted_at is not None:
+            return jsonify({"error": "Torrent already deleted"}), 400
+        download.import_completed_at = time.time()
+        db.commit()
+        logger.info("{bold}API{reset} Marked torrent {cyan}%s{reset} as imported manually by %s", hash, request.remote_addr)
+        return jsonify({"status": "ok"}), 200
+    except Exception as e:
+        logger.exception("Failed to mark torrent %s as imported: %s", hash, e)
+        db.rollback()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        db.close()
+
 @app.route("/api/v1/torrents/<hash>", methods=["DELETE"])
 @require_apikey
-def api_delete_torrent(hash):
-    """Delete a tracked torrent from the download client and mark it as deleted."""
+def api_delete_torrent(hash: str):
+    """Delete a tracked torrent from the download client and mark as deleted."""
     db = SessionLocal()
     try:
         download = db.query(Download).filter(Download.hash == hash).first()
@@ -773,27 +909,21 @@ def api_delete_torrent(hash):
         if download.deleted_at is not None:
             return jsonify({"error": "Torrent already deleted"}), 400
 
-        # Locate the correct download client instance
         client_name = download.client_id
         client = app.config["CLIENT_INSTANCES_BY_NAME"].get(client_name)
         if not client:
-            # Fallback to the first client (legacy compatibility)
+            # Fallback to first client
             client = app.config["CLIENT_INSTANCES"][0] if app.config["CLIENT_INSTANCES"] else None
         if not client:
             return jsonify({"error": "Download client not found"}), 500
 
-        # Delete from the download client (with files)
         client.delete_torrent(hash, delete_files=True)
-
-        # Mark as deleted in DB – now type-safe thanks to model annotations
         download.deleted_at = time.time()
         download.delete_reason = "manual"
         db.commit()
 
-        logger.info("{bold}API{reset} Deleted torrent {cyan}%s{reset} manually by %s",
-                    hash, request.remote_addr)
+        logger.info("{bold}API{reset} Deleted torrent {cyan}%s{reset} manually by %s", hash, request.remote_addr)
         return jsonify({"status": "ok"}), 200
-
     except Exception as e:
         logger.exception("Failed to delete torrent %s: %s", hash, e)
         db.rollback()
@@ -801,23 +931,227 @@ def api_delete_torrent(hash):
     finally:
         db.close()
 
+@app.route("/api/v1/torrents/batch", methods=["POST"])
+@require_apikey
+def api_batch_delete_torrents():
+    """Delete multiple torrents at once."""
+    data = request.get_json()
+    hashes = data.get("hashes", [])
+    if not hashes or not isinstance(hashes, list):
+        return jsonify({"error": "Missing or invalid 'hashes' list"}), 400
+
+    db = SessionLocal()
+    deleted = 0
+    failed = []
+    for h in hashes:
+        try:
+            download = db.query(Download).filter(Download.hash == h).first()
+            if not download or download.deleted_at is not None:
+                failed.append({"hash": h, "error": "Not found or already deleted"})
+                continue
+            client_name = download.client_id
+            client = app.config["CLIENT_INSTANCES_BY_NAME"].get(client_name)
+            if not client:
+                client = app.config["CLIENT_INSTANCES"][0] if app.config["CLIENT_INSTANCES"] else None
+            if not client:
+                failed.append({"hash": h, "error": "Download client not available"})
+                continue
+            client.delete_torrent(h, delete_files=True)
+            download.deleted_at = time.time()
+            download.delete_reason = "manual_batch"
+            deleted += 1
+        except Exception as e:
+            logger.exception("Batch delete failed for %s", h)
+            failed.append({"hash": h, "error": str(e)})
+
+    try:
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        return jsonify({"error": f"Database commit failed: {str(e)}"}), 500
+    finally:
+        db.close()
+
+    return jsonify({"status": "ok", "deleted_count": deleted, "failed_count": len(failed), "failed": failed})
+
+@app.route("/api/v1/history", methods=["GET"])
+@require_apikey
+def api_history():
+    """Return combined history of grabs, imports, deletions, upgrades, etc."""
+    db = SessionLocal()
+    try:
+        event_type = request.args.get("eventType")
+        limit = request.args.get("limit", 100, type=int)
+        offset = request.args.get("offset", 0, type=int)
+        sort_by = request.args.get("sort_by", "timestamp")
+        sort_order = request.args.get("sort_order", "desc")
+
+        allowed_sort = {'timestamp', 'title', 'arr_name', 'indexer', 'quality', 'size', 'type'}
+        if sort_by not in allowed_sort:
+            sort_by = 'timestamp'
+        if sort_order not in ('asc', 'desc'):
+            sort_order = 'desc'
+
+        union_sql = """
+            SELECT g.grabbed_at AS timestamp,
+                   g.release_title AS title,
+                   g.arr_name,
+                   g.indexer,
+                   g.quality,
+                   g.size,
+                   'grab' AS type,
+                   NULL AS reason,
+                   g.media_id,
+                   g.media_type,
+                   g.id AS grab_id,
+                   NULL AS hash
+              FROM grabs g
+             WHERE g.release_title IS NOT NULL
+             UNION ALL
+            SELECT d.import_completed_at AS timestamp,
+                   g.release_title AS title,
+                   g.arr_name,
+                   g.indexer,
+                   g.quality,
+                   g.size,
+                   'import' AS type,
+                   NULL AS reason,
+                   g.media_id,
+                   g.media_type,
+                   g.id AS grab_id,
+                   d.hash
+              FROM downloads d
+              LEFT JOIN grabs g ON d.grab_id = g.id
+             WHERE d.import_completed_at IS NOT NULL
+             UNION ALL
+            SELECT d.deleted_at AS timestamp,
+                   g.release_title AS title,
+                   g.arr_name,
+                   g.indexer,
+                   g.quality,
+                   g.size,
+                   'deletion' AS type,
+                   d.delete_reason AS reason,
+                   g.media_id,
+                   g.media_type,
+                   g.id AS grab_id,
+                   d.hash
+              FROM downloads d
+              LEFT JOIN grabs g ON d.grab_id = g.id
+             WHERE d.deleted_at IS NOT NULL
+             UNION ALL
+            SELECT d.upgraded_at AS timestamp,
+                   g.release_title AS title,
+                   g.arr_name,
+                   g.indexer,
+                   g.quality,
+                   g.size,
+                   'upgrade' AS type,
+                   NULL AS reason,
+                   g.media_id,
+                   g.media_type,
+                   g.id AS grab_id,
+                   d.hash
+              FROM downloads d
+              LEFT JOIN grabs g ON d.grab_id = g.id
+             WHERE d.upgraded_at IS NOT NULL
+             UNION ALL
+            SELECT d.deleted_at AS timestamp,
+                   g.release_title AS title,
+                   g.arr_name,
+                   g.indexer,
+                   g.quality,
+                   g.size,
+                   'stall' AS type,
+                   d.delete_reason AS reason,
+                   g.media_id,
+                   g.media_type,
+                   g.id AS grab_id,
+                   d.hash
+              FROM downloads d
+              LEFT JOIN grabs g ON d.grab_id = g.id
+             WHERE d.delete_reason = 'stalled_strikes'
+             UNION ALL
+            SELECT b.blocked_at AS timestamp,
+                   b.release_title AS title,
+                   b.arr_name,
+                   b.indexer,
+                   b.reason AS reason,
+                   NULL AS size,
+                   'blacklist' AS type,
+                   b.reason AS reason,
+                   NULL AS media_id,
+                   NULL AS media_type,
+                   b.grab_id,
+                   NULL AS hash
+              FROM blacklist b
+             WHERE b.release_title IS NOT NULL
+             UNION ALL
+            SELECT d.deleted_at AS timestamp,
+                   g.release_title AS title,
+                   g.arr_name,
+                   g.indexer,
+                   g.quality,
+                   g.size,
+                   'malicious' AS type,
+                   d.delete_reason AS reason,
+                   g.media_id,
+                   g.media_type,
+                   g.id AS grab_id,
+                   d.hash
+              FROM downloads d
+              LEFT JOIN grabs g ON d.grab_id = g.id
+             WHERE d.delete_reason = 'malicious'
+        """
+        filter_clause = ""
+        if event_type:
+            filter_clause = " WHERE type = :event_type"
+        sort_clause = f" ORDER BY {sort_by} {sort_order}"
+        count_sql = f"SELECT COUNT(*) FROM ({union_sql}) AS all_events{filter_clause}"
+        count_params = {"event_type": event_type} if filter_clause else {}
+        total = db.execute(text(count_sql), count_params).scalar()
+        data_sql = f"SELECT * FROM ({union_sql}) AS all_events{filter_clause}{sort_clause} LIMIT :limit OFFSET :offset"
+        data_params = {"limit": limit, "offset": offset}
+        if filter_clause:
+            data_params["event_type"] = event_type
+        rows = db.execute(text(data_sql), data_params).fetchall()
+        result = [{
+            "timestamp": row.timestamp,
+            "title": row.title or 'Unknown',
+            "arr_name": row.arr_name or '',
+            "indexer": row.indexer or '',
+            "quality": row.quality or '',
+            "size": row.size or 0,
+            "type": row.type,
+            "reason": row.reason or '',
+            "media_id": row.media_id or '',
+            "media_type": row.media_type or '',
+            "grab_id": row.grab_id or None,
+            "hash": row.hash or '',
+        } for row in rows]
+        return jsonify({"total": total, "items": result})
+    finally:
+        db.close()
+
 @app.route("/api/v1/grabs", methods=["GET"])
 @require_apikey
 def api_grabs():
+    """Return list of grab events (deprecated, but kept for compatibility)."""
     db = SessionLocal()
     try:
         query = db.query(Grab)
         arr_name = request.args.get("arr_name")
         if arr_name:
             query = query.filter(Grab.arr_name == arr_name)
+        sort_by = request.args.get("sort_by", "")
+        sort_order = request.args.get("sort_order", "asc")
+        query = apply_sort(query, Grab, sort_by, sort_order)
         limit = request.args.get("limit", default=100, type=int)
         offset = request.args.get("offset", default=0, type=int)
         total = query.count()
-        items = query.order_by(Grab.grabbed_at.desc()).offset(offset).limit(limit).all()
-
+        items = query.offset(offset).limit(limit).all()
         blacklisted_titles = set(b.release_title.strip().lower() for b in db.query(Blacklist.release_title).all())
         matched_grab_ids = set(d.grab_id for d in db.query(Download.grab_id).filter(Download.grab_id.isnot(None)).all())
-
         result = []
         for g in items:
             normalized_title = g.release_title.strip().lower()
@@ -836,7 +1170,7 @@ def api_grabs():
                 "indexer": g.indexer,
                 "quality": g.quality,
                 "size": g.size,
-                "status": status
+                "status": status,
             })
         return jsonify({"total": total, "items": result})
     finally:
@@ -845,13 +1179,17 @@ def api_grabs():
 @app.route("/api/v1/downloads", methods=["GET"])
 @require_apikey
 def api_downloads():
+    """Return list of download records (deprecated)."""
     db = SessionLocal()
     try:
         query = db.query(Download).filter(Download.import_completed_at.isnot(None))
+        sort_by = request.args.get("sort_by", "")
+        sort_order = request.args.get("sort_order", "asc")
+        query = apply_sort(query, Download, sort_by, sort_order)
         limit = request.args.get("limit", default=100, type=int)
         offset = request.args.get("offset", default=0, type=int)
         total = query.count()
-        items = query.order_by(Download.import_completed_at.desc()).offset(offset).limit(limit).all()
+        items = query.offset(offset).limit(limit).all()
         result = []
         for d in items:
             grab = db.query(Grab).filter(Grab.id == d.grab_id).first()
@@ -861,7 +1199,7 @@ def api_downloads():
                 "category": d.category,
                 "import_completed_at": d.import_completed_at,
                 "deleted_at": d.deleted_at,
-                "delete_reason": d.delete_reason
+                "delete_reason": d.delete_reason,
             })
         return jsonify({"total": total, "items": result})
     finally:
@@ -870,13 +1208,17 @@ def api_downloads():
 @app.route("/api/v1/blacklist", methods=["GET"])
 @require_apikey
 def api_blacklist():
+    """Return list of blacklist entries."""
     db = SessionLocal()
     try:
         query = db.query(Blacklist)
+        sort_by = request.args.get("sort_by", "")
+        sort_order = request.args.get("sort_order", "asc")
+        query = apply_sort(query, Blacklist, sort_by, sort_order)
         limit = request.args.get("limit", default=100, type=int)
         offset = request.args.get("offset", default=0, type=int)
         total = query.count()
-        items = query.order_by(Blacklist.blocked_at.desc()).offset(offset).limit(limit).all()
+        items = query.offset(offset).limit(limit).all()
         result = [{
             "id": b.id,
             "release_title": b.release_title,
@@ -885,7 +1227,7 @@ def api_blacklist():
             "source": b.source,
             "blocked_at": b.blocked_at,
             "expires_at": b.expires_at,
-            "grab_id": b.grab_id
+            "grab_id": b.grab_id,
         } for b in items]
         return jsonify({"total": total, "items": result})
     finally:
@@ -894,53 +1236,65 @@ def api_blacklist():
 @app.route("/api/v1/activity", methods=["GET"])
 @require_apikey
 def api_activity():
+    """Return a combined feed of recent activity for the dashboard."""
     db = SessionLocal()
     try:
         limit = request.args.get("limit", default=10, type=int)
-        # Get recent grabs
-        grabs = db.query(Grab).order_by(Grab.grabbed_at.desc()).limit(limit).all()
-        # Get recent downloads (imports)
-        downloads = db.query(Download).filter(Download.import_completed_at.isnot(None)).order_by(Download.import_completed_at.desc()).limit(limit).all()
-        # Get recent deletions
-        deletions = db.query(Download).filter(Download.deleted_at.isnot(None)).order_by(Download.deleted_at.desc()).limit(limit).all()
-
+        event_type = request.args.get("eventType")
         events = []
-        for g in grabs:
-            events.append({
-                "type": "grab",
-                "timestamp": g.grabbed_at,
-                "title": g.release_title,
-                "arr": g.arr_name
-            })
-        for d in downloads:
-            grab = db.query(Grab).filter(Grab.id == d.grab_id).first()
-            events.append({
-                "type": "import",
-                "timestamp": d.import_completed_at,
-                "title": grab.release_title if grab else d.hash,
-                "arr": grab.arr_name if grab else "unknown"
-            })
-        for d in deletions:
-            grab = db.query(Grab).filter(Grab.id == d.grab_id).first()
-            events.append({
-                "type": "deletion",
-                "timestamp": d.deleted_at,
-                "title": grab.release_title if grab else d.hash,
-                "arr": grab.arr_name if grab else "unknown",
-                "reason": d.delete_reason
-            })
-        # Sort combined events by timestamp descending
+        # Grabs
+        if not event_type or event_type == "grab":
+            grabs = db.query(Grab).order_by(Grab.grabbed_at.desc()).limit(limit).all()
+            for g in grabs:
+                events.append({"type": "grab", "timestamp": g.grabbed_at, "title": g.release_title, "arr": g.arr_name, "reason": None})
+        # Imports
+        if not event_type or event_type == "import":
+            downloads = db.query(Download).filter(Download.import_completed_at.isnot(None)).order_by(Download.import_completed_at.desc()).limit(limit).all()
+            for d in downloads:
+                grab = db.query(Grab).filter(Grab.id == d.grab_id).first()
+                events.append({"type": "import", "timestamp": d.import_completed_at, "title": grab.release_title if grab else d.hash, "arr": grab.arr_name if grab else "unknown", "reason": None})
+        # Deletions
+        if not event_type or event_type == "deletion":
+            deletions = db.query(Download).filter(Download.deleted_at.isnot(None)).order_by(Download.deleted_at.desc()).limit(limit).all()
+            for d in deletions:
+                grab = db.query(Grab).filter(Grab.id == d.grab_id).first()
+                events.append({"type": "deletion", "timestamp": d.deleted_at, "title": grab.release_title if grab else d.hash, "arr": grab.arr_name if grab else "unknown", "reason": d.delete_reason})
+        # Upgrades
+        if not event_type or event_type == "upgrade":
+            upgrades = db.query(Download).filter(Download.upgraded_at.isnot(None)).order_by(Download.upgraded_at.desc()).limit(limit).all()
+            for d in upgrades:
+                grab = db.query(Grab).filter(Grab.id == d.grab_id).first()
+                events.append({"type": "upgrade", "timestamp": d.upgraded_at, "title": grab.release_title if grab else d.hash, "arr": grab.arr_name if grab else "unknown", "reason": None})
+        # Stall strikes
+        if not event_type or event_type == "stall":
+            stall_deletions = db.query(Download).filter(Download.delete_reason == "stalled_strikes").order_by(Download.deleted_at.desc()).limit(limit).all()
+            for d in stall_deletions:
+                grab = db.query(Grab).filter(Grab.id == d.grab_id).first()
+                events.append({"type": "stall", "timestamp": d.deleted_at, "title": grab.release_title if grab else d.hash, "arr": grab.arr_name if grab else "unknown", "reason": d.delete_reason})
+        # Blacklist additions
+        if not event_type or event_type == "blacklist":
+            blacklists = db.query(Blacklist).order_by(Blacklist.blocked_at.desc()).limit(limit).all()
+            for b in blacklists:
+                events.append({"type": "blacklist", "timestamp": b.blocked_at, "title": b.release_title, "arr": b.arr_name or "", "reason": b.reason})
+        # Malicious file detections
+        if not event_type or event_type == "malicious":
+            malicious = db.query(Download).filter(Download.delete_reason == "malicious").order_by(Download.deleted_at.desc()).limit(limit).all()
+            for d in malicious:
+                grab = db.query(Grab).filter(Grab.id == d.grab_id).first()
+                events.append({"type": "malicious", "timestamp": d.deleted_at, "title": grab.release_title if grab else d.hash, "arr": grab.arr_name if grab else "unknown", "reason": d.delete_reason})
         events.sort(key=lambda x: x["timestamp"], reverse=True)
         events = events[:limit]
         return jsonify(events)
     finally:
         db.close()
 
-# --- Action Endpoints ---
-
+# -----------------------------------------------------------------------------
+# Action endpoints
+# -----------------------------------------------------------------------------
 @app.route("/api/v1/blacklist", methods=["POST"])
 @require_apikey
 def api_blacklist_add():
+    """Add a release to the blacklist."""
     data = request.get_json()
     release_title = data.get("release_title")
     if not release_title:
@@ -968,6 +1322,7 @@ def api_blacklist_add():
 @app.route("/api/v1/blacklist", methods=["DELETE"])
 @require_apikey
 def api_blacklist_delete():
+    """Remove a release from the blacklist."""
     data = request.get_json()
     entry_id = data.get("id")
     if not entry_id:
@@ -987,85 +1342,67 @@ def api_blacklist_delete():
 @app.route("/api/v1/restart_watchdog", methods=["POST"])
 @require_apikey
 def api_restart_watchdog():
-    try:
-        data = request.get_json() or {}
-        client_name = data.get("client_name")
-        logger.info("{bold}API{reset} Restart requested for client: {cyan}%s{reset}", client_name)
-        logger.debug("{bold}API{reset} Available watchdogs: %s", [w.name for w in watchdogs])
-
-        target_watchdog = None
-        for w in watchdogs:
-            if client_name and w.name == client_name:
-                target_watchdog = w
-                break
-            elif not client_name and watchdogs:
-                target_watchdog = watchdogs[0]
-                break
-
-        if not target_watchdog:
-            logger.warning("{bold}API{reset} No watchdog found for client: {cyan}%s{reset}", client_name)
-            return jsonify({"error": f"Watchdog not found for client '{client_name}'"}), 404
-
-        logger.info("{bold}API{reset} Stopping watchdog {cyan}%s{reset}...", target_watchdog.name)
-        target_watchdog.stop()
-        logger.info("{bold}API{reset} Starting watchdog {cyan}%s{reset}...", target_watchdog.name)
-        target_watchdog.start()
-        logger.info("{bold}API{reset} Watchdog {cyan}%s{reset} restarted successfully", target_watchdog.name)
-
-        return jsonify({"status": "ok", "message": f"Watchdog '{target_watchdog.name}' restarted"}), 200
-
-    except Exception as e:
-        logger.exception("{bold}API{reset} Unexpected error in restart_watchdog")
-        return jsonify({"error": str(e)}), 500
+    """Restart a specific watchdog instance."""
+    data = request.get_json() or {}
+    client_name = data.get("client_name")
+    logger.info("{bold}API{reset} Restart requested for client: {cyan}%s{reset}", client_name)
+    target_watchdog = None
+    for w in watchdogs:
+        if client_name and w.name == client_name:
+            target_watchdog = w
+            break
+        elif not client_name and watchdogs:
+            target_watchdog = watchdogs[0]
+            break
+    if not target_watchdog:
+        logger.warning("{bold}API{reset} No watchdog found for client: {cyan}%s{reset}", client_name)
+        return jsonify({"error": f"Watchdog not found for client '{client_name}'"}), 404
+    logger.info("{bold}API{reset} Stopping watchdog {cyan}%s{reset}...", target_watchdog.name)
+    target_watchdog.stop()
+    logger.info("{bold}API{reset} Starting watchdog {cyan}%s{reset}...", target_watchdog.name)
+    target_watchdog.start()
+    logger.info("{bold}API{reset} Watchdog {cyan}%s{reset} restarted successfully", target_watchdog.name)
+    return jsonify({"status": "ok", "message": f"Watchdog '{target_watchdog.name}' restarted"}), 200
 
 @app.route("/api/v1/force_watchdog_scan", methods=["POST"])
 @require_apikey
 def api_force_watchdog_scan():
-    try:
-        data = request.get_json() or {}
-        client_name = data.get("client_name")
-        logger.info("{bold}API{reset} Force scan requested for client: {cyan}%s{reset}", client_name)
+    """Force an immediate scan of a watchdog."""
+    data = request.get_json() or {}
+    client_name = data.get("client_name")
+    logger.info("{bold}API{reset} Force scan requested for client: {cyan}%s{reset}", client_name)
+    target_watchdog = None
+    for w in watchdogs:
+        if client_name and w.name == client_name:
+            target_watchdog = w
+            break
+        elif not client_name and watchdogs:
+            target_watchdog = watchdogs[0]
+            break
+    if not target_watchdog:
+        logger.warning("{bold}API{reset} No watchdog found for client: {cyan}%s{reset}", client_name)
+        return jsonify({"error": f"Watchdog not found for client '{client_name}'"}), 404
+    def run_cycle():
+        logger.info("{bold}Watchdog{reset} Manual scan thread started for {cyan}%s{reset}", target_watchdog.name)
+        try:
+            target_watchdog._cycle()
+            logger.info("{bold}Watchdog{reset} Manual scan completed for {cyan}%s{reset}", target_watchdog.name)
+        except Exception:
+            logger.exception("{bold}Watchdog{reset} Manual scan failed for {cyan}%s{reset}", target_watchdog.name)
+    threading.Thread(target=run_cycle, daemon=True).start()
+    return jsonify({"status": "ok", "message": f"Scan triggered for {target_watchdog.name}"}), 200
 
-        target_watchdog = None
-        for w in watchdogs:
-            if client_name and w.name == client_name:
-                target_watchdog = w
-                break
-            elif not client_name and watchdogs:
-                target_watchdog = watchdogs[0]
-                break
-
-        if not target_watchdog:
-            logger.warning("{bold}API{reset} No watchdog found for client: {cyan}%s{reset}", client_name)
-            return jsonify({"error": f"Watchdog not found for client '{client_name}'"}), 404
-
-        def run_cycle():
-            logger.info("{bold}Watchdog{reset} Manual scan thread started for {cyan}%s{reset}", target_watchdog.name)
-            try:
-                target_watchdog._cycle()
-                logger.info("{bold}Watchdog{reset} Manual scan completed for {cyan}%s{reset}", target_watchdog.name)
-            except Exception:
-                logger.exception("{bold}Watchdog{reset} Manual scan failed for {cyan}%s{reset}", target_watchdog.name)
-
-        threading.Thread(target=run_cycle, daemon=True).start()
-        return jsonify({"status": "ok", "message": f"Scan triggered for {target_watchdog.name}"}), 200
-
-    except Exception as e:
-        logger.exception("{bold}API{reset} Unexpected error in force_watchdog_scan")
-        return jsonify({"error": str(e)}), 500
-
-# --- Helper for SQLite validation ---
-def validate_sqlite_file(file_path):
-    """Check if file is a valid SQLite database by reading the header."""
+# -----------------------------------------------------------------------------
+# Database backup & restore helpers
+# -----------------------------------------------------------------------------
+def validate_sqlite_file(file_path: str) -> bool:
+    """Check if the file is a valid SQLite database by reading the header."""
     try:
         with open(file_path, 'rb') as f:
             header = f.read(16)
-        # SQLite 3 header is "SQLite format 3\0" (16 bytes)
         return header[:13] == b'SQLite format 3\x00' or header[:13] == b'SQLite format 3\0'
     except Exception:
         return False
-
-# --- Backup & Restore Endpoints ---
 
 @app.route("/api/v1/db/backup", methods=["GET"])
 @require_apikey
@@ -1075,97 +1412,70 @@ def api_db_backup():
     if not os.path.exists(db_path):
         logger.warning("{bold}DB Backup{reset} Database file not found at {cyan}%s{reset}", db_path)
         return jsonify({"error": "Database file not found"}), 404
-
     timestamp = time.strftime("%Y%m%d_%H%M%S")
     filename = f"endarr_backup_{timestamp}.db"
     logger.info("{bold}DB Backup{reset} Downloaded by %s", request.remote_addr)
-    return send_file(
-        db_path,
-        as_attachment=True,
-        download_name=filename,
-        mimetype="application/octet-stream"
-    )
-
+    return send_file(db_path, as_attachment=True, download_name=filename, mimetype="application/octet-stream")
 
 @app.route("/api/v1/db/restore", methods=["POST"])
 @require_apikey
 def api_db_restore():
-    """Replace the current database with an uploaded backup file."""
+    """Replace the database with an uploaded backup file."""
     if 'file' not in request.files:
         return jsonify({"error": "No file provided"}), 400
-
     file = request.files['file']
     if file.filename == '':
         return jsonify({"error": "No file selected"}), 400
-
     db_path = os.getenv("ENDARR_DATA_DIR", "/data") + "/endarr.db"
     pre_backup_path = None
     tmp_path = None
-
     try:
-        # Save uploaded file to temp location
         with tempfile.NamedTemporaryFile(delete=False) as tmp:
             file.save(tmp.name)
             tmp_path = tmp.name
-
-        # Validate SQLite header
         if not validate_sqlite_file(tmp_path):
             os.unlink(tmp_path)
             logger.warning("{bold}DB Restore{reset} Invalid database file uploaded by %s", request.remote_addr)
             return jsonify({"error": "Invalid or corrupted database file"}), 400
-
-        # Create pre-restore backup
         if os.path.exists(db_path):
             timestamp = time.strftime("%Y%m%d_%H%M%S")
             pre_backup_path = f"{db_path}.{timestamp}.pre_restore.bak"
             shutil.copy2(db_path, pre_backup_path)
             logger.info("{bold}DB Restore{reset} Pre-restore backup saved to {cyan}%s{reset}", pre_backup_path)
-
-        # Pause all watchdogs
+        # Pause watchdogs
         logger.info("{bold}DB Restore{reset} Pausing %d watchdogs...", len(watchdogs))
         for w in watchdogs:
             w.stop()
-
-        # Replace database file
         shutil.move(tmp_path, db_path)
         logger.info("{bold}DB Restore{reset} Database replaced with uploaded file")
-
-        # Restart watchdogs
         for w in watchdogs:
             w.start()
         logger.info("{bold}DB Restore{reset} Watchdogs restarted")
-
         return jsonify({"status": "ok", "message": "Database restored successfully."})
-
     except Exception as e:
         logger.exception("{bold}DB Restore{reset} Failed: %s", e)
-
-        # Attempt rollback if we have a pre-restore backup
         if pre_backup_path and os.path.exists(pre_backup_path):
             try:
                 shutil.move(pre_backup_path, db_path)
                 logger.info("{bold}DB Restore{reset} Rolled back to pre-restore backup")
             except Exception as rollback_err:
                 logger.exception("{bold}DB Restore{reset} Rollback failed: %s", rollback_err)
-
-        # Ensure watchdogs are restarted
         for w in watchdogs:
             try:
                 w.start()
             except Exception:
                 pass
-
         return jsonify({"error": str(e)}), 500
-
     finally:
-        # Clean up temp file
         if tmp_path and os.path.exists(tmp_path):
             os.unlink(tmp_path)
 
-# --- Webhook Endpoint (external) ---
-
+# -----------------------------------------------------------------------------
+# Webhook endpoint (external)
+# -----------------------------------------------------------------------------
 @app.route("/arr", methods=["POST"])
 def arr_webhook():
+    """Receive webhooks from *Arr applications."""
     return handle_arr_webhook()
 
 # Record start time for uptime calculation

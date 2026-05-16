@@ -1,7 +1,7 @@
-# services/rtorrent.py
+"""rTorrent client implementation (XML‑RPC)."""
+
 import logging
 from typing import Any, Dict, List, Optional
-from urllib.parse import urlparse
 
 import xmlrpc.client
 
@@ -11,6 +11,8 @@ logger = logging.getLogger(__name__)
 
 
 class RTorrentClient(DownloadClient):
+    """rTorrent XML‑RPC client."""
+
     def __init__(
         self,
         host: str = "localhost",
@@ -20,7 +22,18 @@ class RTorrentClient(DownloadClient):
         password: str = "",
         use_ssl: bool = False,
         timeout: int = 10,
-    ):
+    ) -> None:
+        """Initialise the rTorrent client.
+
+        Args:
+            host: Hostname or IP address.
+            port: Port number (default 80).
+            rpc_path: RPC endpoint path (default "/RPC2").
+            username: Username (if using HTTP auth, typically handled by reverse proxy).
+            password: Password.
+            use_ssl: Use HTTPS if True.
+            timeout: Request timeout in seconds.
+        """
         self.host = host
         self.port = port
         self.rpc_path = rpc_path
@@ -31,25 +44,30 @@ class RTorrentClient(DownloadClient):
         self._server = None
 
     def _connect(self) -> xmlrpc.client.ServerProxy:
+        """Establish XML‑RPC connection to rTorrent.
+
+        Returns:
+            ServerProxy instance.
+
+        Raises:
+            Exception: If connection fails.
+        """
         if self._server is not None:
             return self._server
         protocol = "https" if self.use_ssl else "http"
         url = f"{protocol}://{self.host}:{self.port}{self.rpc_path}"
-        if self.username and self.password:
-            # rTorrent doesn't support HTTP auth natively; usually behind web server.
-            # We'll assume no auth or handled by reverse proxy.
-            pass
+        # rTorrent doesn't natively support HTTP auth; assume reverse proxy handles it.
         try:
             self._server = xmlrpc.client.ServerProxy(url, transport=xmlrpc.client.Transport(), verbose=False)
-            # Test connection
-            self._server.system.listMethods()
+            self._server.system.listMethods()  # test connection
             logger.debug("{bold}rTorrent{reset} Connected to {cyan}%s{reset}", url)
             return self._server
         except Exception as e:
             logger.error("{bold}rTorrent{reset} {red}[ERROR]{reset} Connection failed: %s", e)
             raise
 
-    def _get_torrent_fields(self):
+    def _get_torrent_fields(self) -> List[str]:
+        """Return the list of fields to fetch for multicall."""
         return [
             "d.hash=", "d.name=", "d.directory=", "d.size_bytes=", "d.timestamp.started=",
             "d.complete=", "d.state=", "d.ratio=", "d.up.total=", "d.down.total=",
@@ -58,6 +76,11 @@ class RTorrentClient(DownloadClient):
         ]
 
     def get_torrents(self) -> List[Dict[str, Any]]:
+        """Fetch all torrents from rTorrent.
+
+        Returns:
+            List of torrent dictionaries with standardised keys.
+        """
         server = self._connect()
         try:
             result = server.d.multicall2("", "", *self._get_torrent_fields())
@@ -85,7 +108,16 @@ class RTorrentClient(DownloadClient):
             })
         return torrents
 
-    def _map_state(self, state: int) -> str:
+    @staticmethod
+    def _map_state(state: int) -> str:
+        """Map rTorrent state integer to string.
+
+        Args:
+            state: rTorrent state code.
+
+        Returns:
+            Human-readable state string.
+        """
         states = {
             0: "stopped",
             1: "checking",
@@ -98,6 +130,14 @@ class RTorrentClient(DownloadClient):
         return states.get(state, "unknown")
 
     def get_torrent_files(self, torrent_hash: str) -> List[Dict[str, Any]]:
+        """Get file list for a torrent.
+
+        Args:
+            torrent_hash: Hash of the torrent.
+
+        Returns:
+            List of file dictionaries with keys: name, size, progress.
+        """
         server = self._connect()
         try:
             files = server.f.multicall(torrent_hash, 0, "f.path=", "f.size_bytes=", "f.completed_chunks=", "f.size_chunks=")
@@ -115,6 +155,12 @@ class RTorrentClient(DownloadClient):
         return result
 
     def delete_torrent(self, torrent_hash: str, delete_files: bool = False) -> None:
+        """Delete a torrent.
+
+        Args:
+            torrent_hash: Hash of the torrent.
+            delete_files: If True, also delete data.
+        """
         server = self._connect()
         if delete_files:
             server.d.erase(torrent_hash)
@@ -124,12 +170,25 @@ class RTorrentClient(DownloadClient):
         logger.info("{bold}rTorrent{reset} Deleted torrent {cyan}%s{reset} (delete_files=%s)", torrent_hash, delete_files)
 
     def set_torrent_category(self, torrent_hash: str, category: str) -> None:
-        # rTorrent doesn't have built-in categories; we can use custom1 field for label
+        """Set a custom1 field as category in rTorrent.
+
+        Args:
+            torrent_hash: Hash of the torrent.
+            category: Category name.
+        """
         server = self._connect()
         server.d.set_custom1(torrent_hash, category)
         logger.info("{bold}rTorrent{reset} Set label of {cyan}%s{reset} to {cyan}%s{reset}", torrent_hash, category)
 
     def get_torrent_trackers(self, torrent_hash: str) -> List[Dict[str, Any]]:
+        """Get tracker list for a torrent.
+
+        Args:
+            torrent_hash: Hash of the torrent.
+
+        Returns:
+            List of tracker dictionaries with 'url' key.
+        """
         server = self._connect()
         try:
             trackers = server.t.multicall(torrent_hash, "", "t.url=")
@@ -138,6 +197,14 @@ class RTorrentClient(DownloadClient):
         return [{"url": t} for t in trackers]
 
     def get_torrent_by_save_path(self, path: str) -> Optional[Dict[str, Any]]:
+        """Find torrent by save path.
+
+        Args:
+            path: File path prefix.
+
+        Returns:
+            Torrent dictionary if found, else None.
+        """
         torrents = self.get_torrents()
         for t in torrents:
             if t.get("save_path") and path.startswith(t["save_path"]):

@@ -1,9 +1,17 @@
 // ui/js/settings_general.js
 import { validatePositiveInt, displayFormErrors, initDurationInputs } from './configValidator.js'
-import { escapeHtml } from './utils.js'
+import { openModal } from './modal.js'
+import { SettingsToolbar } from './SettingsToolbar.js'
+import { showToast, showConfirm, showIconFeedback, setupFieldErrorClearing } from './ui-helpers.js'
+import { escapeHtml, getApiKey, consoleDebug } from './utils.js'
 
+/**
+ * Initialise the General settings page: load config, set up event listeners, and initialise toolbar.
+ * @param {Function} loadConfig - Async function to load configuration from server.
+ * @param {Function} saveConfig - Async function to save configuration to server.
+ */
 export function initGeneralForm(loadConfig, saveConfig) {
-    console.log('Initialising General form')
+    consoleDebug('[General] Form initialised')
 
     const webhookKeyInput = document.getElementById('webhookKey')
     const copyApiKeyBtn = document.getElementById('copyApiKeyBtn')
@@ -12,7 +20,7 @@ export function initGeneralForm(loadConfig, saveConfig) {
     const strikeThresholdInput = document.getElementById('strikeThreshold')
     const strikeActionSelect = document.getElementById('strikeAction')
     const strikeBlacklistCheck = document.getElementById('strikeBlacklist')
-    const saveBtn = document.getElementById('saveGeneralBtn')
+    const logLevelSelect = document.getElementById('logLevelSelect')
     const downloadBackupBtn = document.getElementById('downloadBackupBtn')
     const restoreBackupBtn = document.getElementById('restoreBackupBtn')
     const restoreFileInput = document.getElementById('restoreFileInput')
@@ -23,24 +31,7 @@ export function initGeneralForm(loadConfig, saveConfig) {
     const uiPrefsWarning = document.getElementById('uiPrefsWarning')
     const toastDurationInput = document.getElementById('toastDuration')
 
-    // Helper to clear error on input
-    function clearFieldErrorOnInput() {
-        document.querySelectorAll('[data-field]').forEach((input) => {
-            const handler = () => {
-                input.classList.remove('input-error')
-                input.removeAttribute('aria-describedby')
-                const errorDiv = document.getElementById(input.id + 'Error')
-                if (errorDiv) {
-                    errorDiv.style.display = 'none'
-                    errorDiv.textContent = ''
-                }
-            }
-            input.removeEventListener('input', handler)
-            input.addEventListener('input', handler)
-        })
-    }
-
-    // Download backup
+    // ── Backup & Restore handlers (no comments needed, straightforward) ──
     if (downloadBackupBtn) {
         downloadBackupBtn.addEventListener('click', async () => {
             const key = getApiKey()
@@ -71,7 +62,6 @@ export function initGeneralForm(loadConfig, saveConfig) {
         })
     }
 
-    // Restore: trigger file picker
     if (restoreBackupBtn && restoreFileInput) {
         restoreBackupBtn.addEventListener('click', () => {
             restoreFileInput.click()
@@ -80,8 +70,6 @@ export function initGeneralForm(loadConfig, saveConfig) {
         restoreFileInput.addEventListener('change', async () => {
             const file = restoreFileInput.files[0]
             if (!file) return
-
-            // Confirmation
             const confirmed = await showConfirm(
                 `Restore database from "${file.name}"?\n\nThis will replace the current database and cannot be undone.`
             )
@@ -89,36 +77,26 @@ export function initGeneralForm(loadConfig, saveConfig) {
                 restoreFileInput.value = ''
                 return
             }
-
             const key = getApiKey()
             if (!key) return
-
             const formData = new FormData()
             formData.append('file', file)
-
-            // Show loading indicator (optional)
             const originalText = restoreBackupBtn.innerHTML
             restoreBackupBtn.innerHTML = '<i class="fas fa-spinner fa-pulse"></i> Restoring...'
             restoreBackupBtn.disabled = true
-
             try {
                 const resp = await fetch('/api/v1/db/restore', {
                     method: 'POST',
                     headers: { 'X-Api-Key': key },
                     body: formData,
                 })
-
                 const data = await resp.json().catch(() => ({ error: 'Unknown error' }))
-
-                // Show result in persistent modal
                 if (resp.ok) {
                     openModal({
                         title: 'Restore Successful',
                         bodyHtml: `<p>${data.message || 'Database restored successfully.'}</p>`,
                         rightButtons: [{ text: 'OK', class: 'primary-btn' }],
-                        onClose: () => {
-                            window.location.reload()
-                        },
+                        onClose: () => window.location.reload(),
                     })
                 } else {
                     openModal({
@@ -141,6 +119,10 @@ export function initGeneralForm(loadConfig, saveConfig) {
         })
     }
 
+    /**
+     * Render configuration issues in the UI.
+     * @param {Array<{field: string, message: string}>} issues - List of validation issues
+     */
     function renderConfigIssues(issues) {
         const section = document.getElementById('configIssuesSection')
         const list = document.getElementById('configIssuesList')
@@ -164,8 +146,16 @@ export function initGeneralForm(loadConfig, saveConfig) {
         section.style.display = 'block'
     }
 
+    /**
+     * Load configuration and populate all form fields.
+     * @returns {Promise<void>}
+     */
     async function load() {
         const config = await loadConfig()
+        const uiPrefs = config.ui_preferences || {}
+        const initiallyAdvanced = uiPrefs.show_advanced || false
+        toolbar.setAdvancedVisible(initiallyAdvanced)
+
         webhookKeyInput.value = config.webhook_key || ''
         retentionDaysInput.value = config.grabs_retention_days || 30
         const defaults = config.defaults || {}
@@ -173,7 +163,17 @@ export function initGeneralForm(loadConfig, saveConfig) {
         strikeActionSelect.value = defaults.strike_action || 'delete'
         strikeBlacklistCheck.checked = defaults.strike_blacklist || false
 
-        const uiPrefs = config.ui_preferences || {}
+        try {
+            const key = getApiKey()
+            const resp = await fetch('/api/v1/system/log-level', { headers: { 'X-Api-Key': key } })
+            if (resp.ok) {
+                const data = await resp.json()
+                logLevelSelect.value = data.level
+            }
+        } catch (err) {
+            console.error('Failed to fetch log level', err)
+        }
+
         hideUncategorizedCheck.checked = uiPrefs.hide_uncategorized_by_default !== false
         confirmDataDeletionCheck.checked = uiPrefs.confirm_data_deletion !== false
         confirmConfigModificationCheck.checked = uiPrefs.confirm_config_modification !== false
@@ -181,7 +181,6 @@ export function initGeneralForm(loadConfig, saveConfig) {
         toastDurationInput.value = uiPrefs.toast_duration_seconds || 5
         updateWarningIcon()
 
-        // Fetch and display config issues
         const key = getApiKey()
         if (key) {
             try {
@@ -197,75 +196,13 @@ export function initGeneralForm(loadConfig, saveConfig) {
             }
         }
 
-        // Initialize duration helpers
         initDurationInputs(document.querySelector('.settings-container') || document)
-        clearFieldErrorOnInput()
+        setupFieldErrorClearing(document.querySelector('#pageContent'))
     }
 
-    async function save() {
-        // Build config updates
-        const updated = {
-            webhook_key: webhookKeyInput.value,
-            grabs_retention_days: parseInt(retentionDaysInput.value, 10),
-        }
-        if (!updated.grabs_retention_days || updated.grabs_retention_days < 0)
-            updated.grabs_retention_days = 30
-
-        const defaults = {
-            strike_threshold: parseInt(strikeThresholdInput.value, 10),
-            strike_action: strikeActionSelect.value,
-            strike_blacklist: strikeBlacklistCheck.checked,
-        }
-
-        // Validate
-        const errors = []
-        const retentionErr = validatePositiveInt(
-            updated.grabs_retention_days,
-            'grabs_retention_days'
-        )
-        if (retentionErr) errors.push({ field: 'grabs_retention_days', message: retentionErr })
-        const thresholdErr = validatePositiveInt(
-            defaults.strike_threshold,
-            'defaults.strike_threshold',
-            false
-        )
-        if (thresholdErr) errors.push({ field: 'defaults.strike_threshold', message: thresholdErr })
-
-        if (errors.length > 0) {
-            displayFormErrors(errors)
-            showToast('Please correct the highlighted fields.', 'error')
-            return
-        }
-
-        const config = await loadConfig()
-        config.webhook_key = updated.webhook_key
-        config.grabs_retention_days = updated.grabs_retention_days
-        if (!config.defaults) config.defaults = {}
-        Object.assign(config.defaults, defaults)
-
-        try {
-            await saveConfig(config)
-            showButtonFeedback(saveBtn, 'success', {
-                successText: 'Saved',
-                originalText: 'Save Changes',
-            })
-            // Refresh issues display after save
-            const issuesResp = await fetch('/api/v1/config/issues', {
-                headers: { 'X-Api-Key': getApiKey() },
-            })
-            if (issuesResp.ok) {
-                const issuesData = await issuesResp.json()
-                renderConfigIssues(issuesData.issues)
-            }
-        } catch (err) {
-            showButtonFeedback(saveBtn, 'error', {
-                errorText: 'Not saved',
-                originalText: 'Save Changes',
-            })
-            showToast(`Save failed: ${err.message}`, 'error')
-        }
-    }
-
+    /**
+     * Update the warning icon for disabled confirmation dialogs.
+     */
     function updateWarningIcon() {
         if (uiPrefsWarning) {
             const showWarning =
@@ -274,33 +211,12 @@ export function initGeneralForm(loadConfig, saveConfig) {
         }
     }
 
-    async function saveUiPreferences() {
-        const config = await loadConfig()
-        if (!config.ui_preferences) config.ui_preferences = {}
-        config.ui_preferences.hide_uncategorized_by_default = hideUncategorizedCheck.checked
-        config.ui_preferences.confirm_data_deletion = confirmDataDeletionCheck.checked
-        config.ui_preferences.confirm_config_modification = confirmConfigModificationCheck.checked
-        config.ui_preferences.default_page_size = parseInt(defaultPageSizeSelect.value, 10)
-        config.ui_preferences.toast_duration_seconds = parseInt(toastDurationInput.value, 10) || 5
-        await saveConfig(config)
-        updateWarningIcon()
-        showToast('UI preferences saved', 'success')
-    }
-
-    // Event listeners for UI preferences (auto-save on change)
-    hideUncategorizedCheck.addEventListener('change', saveUiPreferences)
-    confirmDataDeletionCheck.addEventListener('change', saveUiPreferences)
-    confirmConfigModificationCheck.addEventListener('change', saveUiPreferences)
-    defaultPageSizeSelect.addEventListener('change', saveUiPreferences)
-    toastDurationInput.addEventListener('blur', saveUiPreferences) // Save on blur after potential edit
-
-    // Copy API key
+    // Copy API key button
     copyApiKeyBtn.addEventListener('click', async () => {
         try {
             await navigator.clipboard.writeText(webhookKeyInput.value)
             showIconFeedback(copyApiKeyBtn, 'success')
         } catch (err) {
-            // Fallback
             const textarea = document.createElement('textarea')
             textarea.value = webhookKeyInput.value
             document.body.appendChild(textarea)
@@ -315,13 +231,12 @@ export function initGeneralForm(loadConfig, saveConfig) {
         }
     })
 
-    // Reset API key with confirmation
+    // Reset API key button
     resetApiKeyBtn.addEventListener('click', async () => {
         const confirmed = await showConfirm(
             'Are you sure you want to reset your API Key? Any existing webhook URLs will stop working until updated.'
         )
         if (!confirmed) return
-
         const key = getApiKey()
         try {
             const resp = await fetch('/api/v1/webhook_key/reset', {
@@ -338,6 +253,83 @@ export function initGeneralForm(loadConfig, saveConfig) {
         }
     })
 
-    saveBtn.addEventListener('click', save)
-    load()
+    /**
+     * Save all general settings, including UI preferences and log level.
+     * @returns {Promise<void>}
+     * @throws Will throw if validation fails.
+     */
+    async function save() {
+        const updated = {
+            webhook_key: webhookKeyInput.value,
+            grabs_retention_days: parseInt(retentionDaysInput.value, 10),
+        }
+        if (!updated.grabs_retention_days || updated.grabs_retention_days < 0)
+            updated.grabs_retention_days = 30
+
+        const defaults = {
+            strike_threshold: parseInt(strikeThresholdInput.value, 10),
+            strike_action: strikeActionSelect.value,
+            strike_blacklist: strikeBlacklistCheck.checked,
+        }
+
+        const errors = []
+        const retentionErr = validatePositiveInt(
+            updated.grabs_retention_days,
+            'grabs_retention_days'
+        )
+        if (retentionErr) errors.push({ field: 'grabs_retention_days', message: retentionErr })
+        const thresholdErr = validatePositiveInt(
+            defaults.strike_threshold,
+            'defaults.strike_threshold',
+            false
+        )
+        if (thresholdErr) errors.push({ field: 'defaults.strike_threshold', message: thresholdErr })
+
+        if (errors.length > 0) {
+            displayFormErrors(errors)
+            throw new Error('Validation failed')
+        }
+
+        const config = await loadConfig()
+        config.webhook_key = updated.webhook_key
+        config.grabs_retention_days = updated.grabs_retention_days
+        if (!config.defaults) config.defaults = {}
+        Object.assign(config.defaults, defaults)
+
+        const level = logLevelSelect.value
+        await fetch('/api/v1/system/log-level', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Api-Key': getApiKey() },
+            body: JSON.stringify({ level }),
+        })
+        localStorage.setItem('endarr_log_level', level)
+
+        if (!config.ui_preferences) config.ui_preferences = {}
+        config.ui_preferences.hide_uncategorized_by_default = hideUncategorizedCheck.checked
+        config.ui_preferences.confirm_data_deletion = confirmDataDeletionCheck.checked
+        config.ui_preferences.confirm_config_modification = confirmConfigModificationCheck.checked
+        config.ui_preferences.default_page_size = parseInt(defaultPageSizeSelect.value, 10)
+        config.ui_preferences.toast_duration_seconds = parseInt(toastDurationInput.value, 10) || 5
+        config.ui_preferences.show_advanced = toolbar._advancedVisible
+
+        await saveConfig(config)
+        updateWarningIcon()
+
+        const issuesResp = await fetch('/api/v1/config/issues', {
+            headers: { 'X-Api-Key': getApiKey() },
+        })
+        if (issuesResp.ok) {
+            const issuesData = await issuesResp.json()
+            renderConfigIssues(issuesData.issues)
+        }
+    }
+
+    // ── Toolbar initialisation ──
+    const toolbar = new SettingsToolbar({
+        container: '#pageContent',
+        save,
+        showAdvanced: true,
+    })
+    toolbar.init()
+    load().then(() => toolbar.captureSnapshot())
 }

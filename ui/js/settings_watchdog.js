@@ -1,31 +1,24 @@
 // ui/js/settings_watchdog.js
 import { validatePositiveInt, displayFormErrors, initDurationInputs } from './configValidator.js'
-import { escapeHtml, formatDate } from './utils.js'
+import { SettingsToolbar } from './SettingsToolbar.js'
+import { showToast, confirmAction, setupFieldErrorClearing } from './ui-helpers.js'
+import { escapeHtml, formatDate, consoleDebug } from './utils.js'
 
+/**
+ * Initialise the Watchdog settings page.
+ * @param {Function} loadConfig - Async function to load configuration.
+ * @param {Function} saveConfig - Async function to save configuration.
+ */
 export function initWatchdogForm(loadConfig, saveConfig) {
-    console.log('Initialising Watchdog form')
+    consoleDebug('[Watchdog] Form initialised')
 
     const instancesList = document.getElementById('watchdogInstancesList')
     const intervalInput = document.getElementById('watchdogInterval')
-    const saveBtn = document.getElementById('saveWatchdogBtn')
 
-    // Helper to clear error on input
-    function clearFieldErrorOnInput() {
-        document.querySelectorAll('[data-field]').forEach((input) => {
-            const handler = () => {
-                input.classList.remove('input-error')
-                input.removeAttribute('aria-describedby')
-                const errorDiv = document.getElementById(input.id + 'Error')
-                if (errorDiv) {
-                    errorDiv.style.display = 'none'
-                    errorDiv.textContent = ''
-                }
-            }
-            input.removeEventListener('input', handler)
-            input.addEventListener('input', handler)
-        })
-    }
-
+    /**
+     * Render the list of watchdog instances (cards).
+     * @returns {Promise<void>}
+     */
     async function renderInstances() {
         if (!instancesList) return
         instancesList.innerHTML = '<div class="loading">Loading instances...</div>'
@@ -37,24 +30,18 @@ export function initWatchdogForm(loadConfig, saveConfig) {
         }
 
         const [status, config] = await Promise.all([
-            fetch('/api/v1/status', { headers: { 'X-Api-Key': key } }).then((r) =>
-                r.ok ? r.json() : null
-            ),
-            fetch('/api/v1/config', { headers: { 'X-Api-Key': key } }).then((r) =>
-                r.ok ? r.json() : null
-            ),
+            fetch('/api/v1/status', { headers: { 'X-Api-Key': key } }).then(r => r.ok ? r.json() : null),
+            fetch('/api/v1/config', { headers: { 'X-Api-Key': key } }).then(r => r.ok ? r.json() : null),
         ])
 
         if (!status) {
-            instancesList.innerHTML =
-                '<div class="placeholder-text">Unable to load watchdog status</div>'
+            instancesList.innerHTML = '<div class="placeholder-text">Unable to load watchdog status</div>'
             return
         }
 
         const clients = status.download_clients || []
         if (clients.length === 0) {
-            instancesList.innerHTML =
-                '<div class="placeholder-text">No download clients configured</div>'
+            instancesList.innerHTML = '<div class="placeholder-text">No download clients configured</div>'
             return
         }
 
@@ -62,8 +49,8 @@ export function initWatchdogForm(loadConfig, saveConfig) {
         const downloadClientsConfig = config?.download_clients || []
 
         instancesList.innerHTML = ''
-        clients.forEach((client) => {
-            const clientConfig = downloadClientsConfig.find((c) => c.name === client.name)
+        clients.forEach(client => {
+            const clientConfig = downloadClientsConfig.find(c => c.name === client.name)
             const clientInterval = clientConfig?.watchdog_interval
             const effectiveInterval = clientInterval || globalInterval
             const isOverridden = clientInterval && clientInterval != globalInterval
@@ -75,11 +62,9 @@ export function initWatchdogForm(loadConfig, saveConfig) {
                 ? '<span class="status-badge enabled">Running</span>'
                 : '<span class="status-badge disabled">Stopped</span>'
 
-            const intervalDisplay =
-                `${effectiveInterval}s` +
-                (isOverridden
-                    ? ' <span class="tooltip"><i class="fas fa-asterisk" style="font-size:0.7rem; color:var(--accent-color);" aria-hidden="true"></i><span class="tooltip-text" role="tooltip">Overrides global interval</span></span>'
-                    : '')
+            const intervalDisplay = `${effectiveInterval}s` + (isOverridden
+                ? ' <span class="tooltip"><i class="fas fa-asterisk" style="font-size:0.7rem; color:var(--accent-color);"></i><span class="tooltip-text">Overrides global interval</span></span>'
+                : '')
 
             const card = document.createElement('div')
             card.className = 'client-card'
@@ -94,19 +79,19 @@ export function initWatchdogForm(loadConfig, saveConfig) {
                     <div class="status-item"><span>Last Run</span> <span>${formatDate(client.watchdog_last_run)}</span></div>
                 </div>
                 <div class="card-footer">
-                    <button class="action-btn restart-watchdog" data-client="${escapeHtml(client.name)}" title="Restart this watchdog" aria-label="Restart watchdog for ${escapeHtml(client.name)}">
-                        <i class="fas fa-sync-alt" aria-hidden="true"></i> Restart
+                    <button class="action-btn restart-watchdog" data-client="${escapeHtml(client.name)}" title="Restart this watchdog">
+                        <i class="fas fa-sync-alt"></i> Restart
                     </button>
-                    <button class="action-btn force-scan" data-client="${escapeHtml(client.name)}" title="Force an immediate scan" aria-label="Force scan for ${escapeHtml(client.name)}">
-                        <i class="fas fa-bolt" aria-hidden="true"></i> Force Scan
+                    <button class="action-btn force-scan" data-client="${escapeHtml(client.name)}" title="Force an immediate scan">
+                        <i class="fas fa-bolt"></i> Force Scan
                     </button>
                 </div>
             `
             instancesList.appendChild(card)
         })
 
-        // Attach event listeners (unchanged)
-        document.querySelectorAll('.restart-watchdog').forEach((btn) => {
+        // Attach event listeners
+        document.querySelectorAll('.restart-watchdog').forEach(btn => {
             btn.addEventListener('click', async (e) => {
                 e.stopPropagation()
                 const clientName = btn.dataset.client
@@ -121,9 +106,7 @@ export function initWatchdogForm(loadConfig, saveConfig) {
                             showToast('Watchdog restarted', 'success')
                             setTimeout(renderInstances, 2000)
                         } else {
-                            const error = await resp
-                                .json()
-                                .catch(() => ({ error: 'Unknown error' }))
+                            const error = await resp.json().catch(() => ({ error: 'Unknown error' }))
                             showToast(error.error || 'Failed to restart watchdog', 'error')
                         }
                     } catch (err) {
@@ -133,7 +116,7 @@ export function initWatchdogForm(loadConfig, saveConfig) {
             })
         })
 
-        document.querySelectorAll('.force-scan').forEach((btn) => {
+        document.querySelectorAll('.force-scan').forEach(btn => {
             btn.addEventListener('click', async (e) => {
                 e.stopPropagation()
                 const clientName = btn.dataset.client
@@ -144,11 +127,8 @@ export function initWatchdogForm(loadConfig, saveConfig) {
                             headers: { 'X-Api-Key': key, 'Content-Type': 'application/json' },
                             body: JSON.stringify({ client_name: clientName }),
                         })
-                        if (resp.ok) {
-                            showToast('Scan triggered', 'success')
-                        } else {
-                            showToast('Failed to trigger scan', 'error')
-                        }
+                        if (resp.ok) showToast('Scan triggered', 'success')
+                        else showToast('Failed to trigger scan', 'error')
                     } catch (err) {
                         showToast(`Error: ${err.message}`, 'error')
                     }
@@ -157,43 +137,40 @@ export function initWatchdogForm(loadConfig, saveConfig) {
         })
     }
 
+    /**
+     * Load configuration and populate the form.
+     * @returns {Promise<void>}
+     */
     async function load() {
         const config = await loadConfig()
         const watchdog = config.watchdog || {}
         intervalInput.value = watchdog.interval_seconds || 900
         await renderInstances()
         initDurationInputs(document.querySelector('.settings-container') || document)
-        clearFieldErrorOnInput()
+        setupFieldErrorClearing(document.querySelector('#pageContent'))
     }
 
+    /**
+     * Save watchdog global interval.
+     * @returns {Promise<void>}
+     * @throws Will throw if validation fails.
+     */
     async function save() {
         const interval = parseInt(intervalInput.value, 10)
         const error = validatePositiveInt(interval, 'watchdog.interval_seconds', false)
         if (error) {
             displayFormErrors([{ field: 'watchdog.interval_seconds', message: error }])
-            showToast('Please correct the highlighted field.', 'error')
-            return
+            throw new Error('Validation failed')
         }
-
         const config = await loadConfig()
         if (!config.watchdog) config.watchdog = {}
         config.watchdog.interval_seconds = interval
-        try {
-            await saveConfig(config)
-            showButtonFeedback(saveBtn, 'success', {
-                successText: 'Saved',
-                originalText: 'Save Settings',
-            })
-            await renderInstances()
-        } catch (err) {
-            showButtonFeedback(saveBtn, 'error', {
-                errorText: 'Not saved',
-                originalText: 'Save Settings',
-            })
-            showToast(`Save failed: ${err.message}`, 'error')
-        }
+        await saveConfig(config)
+        await renderInstances()
     }
 
-    saveBtn.addEventListener('click', save)
-    load()
+    // Toolbar initialisation (no advanced toggle needed)
+    const toolbar = new SettingsToolbar({ container: '#pageContent', save })
+    toolbar.init()
+    load().then(() => toolbar.captureSnapshot())
 }

@@ -1,5 +1,7 @@
-# services/utorrent.py
+"""uTorrent client implementation (web API)."""
+
 import logging
+import re
 from typing import Any, Dict, List, Optional
 from urllib.parse import urljoin
 
@@ -11,6 +13,8 @@ logger = logging.getLogger(__name__)
 
 
 class UTorrentClient(DownloadClient):
+    """uTorrent Web API client."""
+
     def __init__(
         self,
         host: str = "localhost",
@@ -19,7 +23,17 @@ class UTorrentClient(DownloadClient):
         password: str = "",
         use_ssl: bool = False,
         timeout: int = 10,
-    ):
+    ) -> None:
+        """Initialise the uTorrent client.
+
+        Args:
+            host: Hostname or IP address.
+            port: Port number (default 8080).
+            username: Username for authentication.
+            password: Password for authentication.
+            use_ssl: Use HTTPS if True.
+            timeout: Request timeout in seconds.
+        """
         self.host = host
         self.port = port
         self.username = username
@@ -30,25 +44,46 @@ class UTorrentClient(DownloadClient):
         self._cookies = None
         self._session = requests.Session()
 
-    def _get_token(self):
-        url = self._build_url("token.html")
-        resp = self._session.get(url, auth=(self.username, self.password), timeout=self.timeout)
-        resp.raise_for_status()
-        # Extract token from HTML
-        import re
-        match = re.search(r"<div[^>]*id=[\"']token[\"'][^>]*>([^<]+)</div>", resp.text)
-        if match:
-            self._token = match.group(1)
-        else:
-            raise Exception("Could not extract uTorrent token")
-        return self._token
+    def _build_url(self, path: str) -> str:
+        """Build full URL for uTorrent API.
 
-    def _build_url(self, path):
+        Args:
+            path: API endpoint (e.g., "token.html").
+
+        Returns:
+            Full URL.
+        """
         protocol = "https" if self.use_ssl else "http"
         base = f"{protocol}://{self.host}:{self.port}/gui/"
         return urljoin(base, path)
 
-    def _request(self, params):
+    def _get_token(self) -> str:
+        """Retrieve authentication token from uTorrent.
+
+        Returns:
+            Token string.
+
+        Raises:
+            Exception: If token cannot be extracted.
+        """
+        url = self._build_url("token.html")
+        resp = self._session.get(url, auth=(self.username, self.password), timeout=self.timeout)
+        resp.raise_for_status()
+        match = re.search(r"<div[^>]*id=[\"']token[\"'][^>]*>([^<]+)</div>", resp.text)
+        if match:
+            self._token = match.group(1)
+            return self._token
+        raise Exception("Could not extract uTorrent token")
+
+    def _request(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Make an authenticated API request.
+
+        Args:
+            params: Query parameters for the request.
+
+        Returns:
+            JSON response as dictionary.
+        """
         if self._token is None:
             self._get_token()
         params["token"] = self._token
@@ -58,6 +93,11 @@ class UTorrentClient(DownloadClient):
         return resp.json()
 
     def get_torrents(self) -> List[Dict[str, Any]]:
+        """Fetch all torrents from uTorrent.
+
+        Returns:
+            List of torrent dictionaries with standardised keys.
+        """
         data = self._request({"list": 1})
         torrents = data.get("torrents", [])
         result = []
@@ -81,8 +121,17 @@ class UTorrentClient(DownloadClient):
             })
         return result
 
-    def _map_state(self, status, progress):
-        # uTorrent status codes
+    @staticmethod
+    def _map_state(status: int, progress: int) -> str:
+        """Map uTorrent status flags to a state string.
+
+        Args:
+            status: Status bitmask.
+            progress: Progress thousandths.
+
+        Returns:
+            State string.
+        """
         if status & 1:
             return "started"
         if status & 2:
@@ -98,6 +147,14 @@ class UTorrentClient(DownloadClient):
         return "stopped"
 
     def get_torrent_files(self, torrent_hash: str) -> List[Dict[str, Any]]:
+        """Get file list for a torrent.
+
+        Args:
+            torrent_hash: Hash of the torrent.
+
+        Returns:
+            List of file dictionaries with keys: name, size, progress.
+        """
         data = self._request({"action": "getfiles", "hash": torrent_hash})
         files = data.get("files", [])
         result = []
@@ -110,15 +167,35 @@ class UTorrentClient(DownloadClient):
         return result
 
     def delete_torrent(self, torrent_hash: str, delete_files: bool = False) -> None:
+        """Delete a torrent.
+
+        Args:
+            torrent_hash: Hash of the torrent.
+            delete_files: If True, also delete data.
+        """
         action = "removedata" if delete_files else "remove"
         self._request({"action": action, "hash": torrent_hash})
         logger.info("{bold}uTorrent{reset} Deleted torrent {cyan}%s{reset} (delete_files=%s)", torrent_hash, delete_files)
 
     def set_torrent_category(self, torrent_hash: str, category: str) -> None:
+        """Set label (category) for a torrent.
+
+        Args:
+            torrent_hash: Hash of the torrent.
+            category: Category name.
+        """
         self._request({"action": "setprops", "hash": torrent_hash, "s": "label", "v": category})
         logger.info("{bold}uTorrent{reset} Set label of {cyan}%s{reset} to {cyan}%s{reset}", torrent_hash, category)
 
     def get_torrent_trackers(self, torrent_hash: str) -> List[Dict[str, Any]]:
+        """Get tracker list for a torrent.
+
+        Args:
+            torrent_hash: Hash of the torrent.
+
+        Returns:
+            List of tracker dictionaries with 'url' key.
+        """
         data = self._request({"action": "getprops", "hash": torrent_hash})
         props = data.get("props", [])
         for prop in props:
@@ -128,6 +205,14 @@ class UTorrentClient(DownloadClient):
         return []
 
     def get_torrent_by_save_path(self, path: str) -> Optional[Dict[str, Any]]:
+        """Find torrent by save path.
+
+        Args:
+            path: File path prefix.
+
+        Returns:
+            Torrent dictionary if found, else None.
+        """
         torrents = self.get_torrents()
         for t in torrents:
             if t.get("save_path") and path.startswith(t["save_path"]):

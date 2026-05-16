@@ -1,11 +1,22 @@
-# utils/titles.py
+"""Release title normalisation utilities."""
+
 import re
 
 # Common scene groups that often appear as "-GROUP" at the end
-SCENE_GROUPS = r'\b(?:EVO|TGx|RARBG|NTb|NTG|ETHEL|EDITH|AMZN|NTb|TEPES|YTS|MX|YIFY|RZeroX|PSA|OFT|COiN)\b'
+SCENE_GROUPS = r'\b(?:EVO|TGx|RARBG|NTb|NTG|ETHEL|EDITH|AMZN|TEPES|YTS|MX|YIFY|RZeroX|PSA|OFT|COiN)\b'
+
 
 def normalize_release_title(title: str) -> str:
-    """Normalize a release title for comparison."""
+    """Normalise a release title for comparison.
+
+    Removes common prefixes, brackets, scene group suffixes, and normalises spaces.
+
+    Args:
+        title: The original release title.
+
+    Returns:
+        Normalised title in lowercase with spaces instead of dots/underscores.
+    """
     # Remove leading website prefixes (e.g., "www.Torrenting.com - ")
     title = re.sub(r'^[\w.-]+\.[a-z]{2,}\s*-\s*', '', title, flags=re.IGNORECASE)
 

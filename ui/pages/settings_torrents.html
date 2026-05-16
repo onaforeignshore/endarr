@@ -1,11 +1,10 @@
 <!-- ui/pages/settings_torrents.html -->
 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
     <h2 style="margin-bottom: 0;">Torrent Handling</h2>
-    <label class="checkbox-group">
-        <input type="checkbox" id="showAdvancedToggle">
-        <span>Show Advanced Options</span>
-    </label>
 </div>
+
+<!-- Hidden input for conditions state for Calculated delete policy -->
+<input type="hidden" id="conditionsState" data-field="conditions_state" value="[]">
 
 <!-- Successful Torrents Section -->
 <div class="settings-section" aria-labelledby="successful-heading">
@@ -25,15 +24,21 @@
     </div>
 
     <div id="deletionRulesContainer" role="region" aria-label="Seeding goals conditions">
-        <div class="conditions-header">
+        <div class="seeding-goals-header">
             <h3 id="seedingGoalsHeading">Seeding Goals</h3>
-            <div class="radio-group" role="radiogroup" aria-labelledby="seedingGoalsHeading">
-                <label class="radio-label"><input type="radio" name="operator" value="any" checked> Any (OR)</label>
-                <label class="radio-label"><input type="radio" name="operator" value="all"> All (AND)</label>
+            <div class="seeding-goals-controls">
+                <button id="addConditionBtn" class="secondary-btn"><i class="fas fa-plus"></i> Add Condition</button>
+                <div id="operatorDropdownContainer" class="operator-dropdown-container" style="display: none;">
+                    <label for="operatorSelect">Match:</label>
+                    <select id="operatorSelect" data-field="deletion_rules.operator">
+                        <option value="any">Any (OR)</option>
+                        <option value="all">All (AND)</option>
+                    </select>
+                </div>
             </div>
         </div>
-        <div id="conditionsList" class="conditions-list" role="list" aria-label="Current conditions"></div>
-        <button id="addConditionBtn" class="secondary-btn"><i class="fas fa-plus"></i> Add Condition</button>
+        <div id="conditionsList" class="conditions-grid" role="list" aria-label="Current conditions"></div>
+        <div id="emptyConditionsPlaceholder" class="placeholder-card" style="display: none;">No conditions – click + Add Condition to add one.</div>
     </div>
 
     <!-- Hidden ratio and seed time fields -->
@@ -111,21 +116,12 @@
             </div>
         </div>
     </div>
-
-    <div class="form-actions">
-        <button class="slide-btn" id="saveSuccessfulBtn">
-            <div class="slide-btn-inner default-content"><i class="far fa-save" aria-hidden="true"></i><span class="btn-text">Save Settings</span></div>
-            <div class="success-content" aria-hidden="true"><i class="fas fa-check"></i><span>Saved</span></div>
-            <div class="error-content" aria-hidden="true"><i class="fas fa-times"></i><span>Not saved</span></div>
-        </button>
-    </div>
 </div>
 
 <!-- ARR Overrides Section -->
 <div class="settings-section" aria-labelledby="arr-overrides-heading">
     <div class="override-header">
         <h2 id="arr-overrides-heading">ARR Overrides</h2>
-        <button id="addArrOverrideBtn" class="secondary-btn"><i class="fas fa-plus"></i> Add override</button>
     </div>
     <p class="section-note">Override the successful torrent settings for specific ARR instances.</p>
     <div id="arrOverridesList" class="clients-grid" role="list" aria-label="ARR overrides"></div>
@@ -275,27 +271,19 @@
 
     <div class="form-row-checkboxes" role="group" aria-label="Post-deletion actions">
         <label class="checkbox-group">
-            <input type="checkbox" id="problemSearchOnDelete">
+            <input type="checkbox" id="problemSearchOnDelete" data-field="problematic_torrents.search_on_delete">
             <span>Search for replacement on deletion</span>
             <span class="tooltip"><i class="fas fa-question-circle tooltip-icon" aria-hidden="true"></i>
                 <span class="tooltip-text">Tell the ARR to search for a new release after deleting a problematic torrent.</span>
             </span>
         </label>
         <label class="checkbox-group">
-            <input type="checkbox" id="problemPolicyBlacklist">
+            <input type="checkbox" id="problemPolicyBlacklist" data-field="problematic_torrents.policy_blacklist">
             <span>Add to blacklist on deletion</span>
             <span class="tooltip"><i class="fas fa-question-circle tooltip-icon" aria-hidden="true"></i>
                 <span class="tooltip-text">Prevent this release from being grabbed again.</span>
             </span>
         </label>
-    </div>
-
-    <div class="form-actions">
-        <button class="slide-btn" id="saveProblematicBtn">
-            <div class="slide-btn-inner default-content"><i class="far fa-save" aria-hidden="true"></i><span class="btn-text">Save Settings</span></div>
-            <div class="success-content" aria-hidden="true"><i class="fas fa-check"></i><span>Saved</span></div>
-            <div class="error-content" aria-hidden="true"><i class="fas fa-times"></i><span>Not saved</span></div>
-        </button>
     </div>
 </div>
 
@@ -316,12 +304,5 @@
         </div>
         <div aria-hidden="true"></div>
         <div class="error-message" id="torrentAgeDaysError" style="display: none;" role="alert"></div>
-    </div>
-    <div class="form-actions">
-        <button class="slide-btn" id="saveCleanupBtn">
-            <div class="slide-btn-inner default-content"><i class="far fa-save" aria-hidden="true"></i><span class="btn-text">Save Settings</span></div>
-            <div class="success-content" aria-hidden="true"><i class="fas fa-check"></i><span>Saved</span></div>
-            <div class="error-content" aria-hidden="true"><i class="fas fa-times"></i><span>Not saved</span></div>
-        </button>
     </div>
 </div>
