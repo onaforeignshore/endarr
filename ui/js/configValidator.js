@@ -284,7 +284,11 @@ export function initDurationInputs(container = document) {
         const updateHelper = () => {
             const seconds = parseInt(input.value, 10)
             if (!isNaN(seconds) && helper) {
-                helper.textContent = `(${formatSeconds(seconds)})`
+                if (seconds === 0) {
+                    helper.textContent = '(Disabled)'
+                } else {
+                    helper.textContent = `(${formatSeconds(seconds)})`
+                }
             }
         }
         updateHelper()
@@ -334,7 +338,11 @@ export function initByteInputs(container = document) {
         const updateHelper = () => {
             const bytes = parseInt(input.value, 10)
             if (!isNaN(bytes) && helper) {
-                helper.textContent = `(${formatBytes(bytes)})`
+                if (bytes === 0) {
+                    helper.textContent = '(Disabled)'
+                } else {
+                    helper.textContent = `(${formatBytes(bytes)})`
+                }
             }
         }
         updateHelper()
