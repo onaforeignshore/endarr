@@ -389,7 +389,7 @@ export async function showOnboardingModal() {
                     } catch (err) {
                         openModal({
                             title: 'Error',
-                            bodyHtml: `<p style="color: var(--danger-color);">${err.message}</p>`,
+                            bodyHtml: `<p class="error-text">${err.message}</p>`,
                             rightButtons: [{ text: 'OK', class: 'primary-btn' }],
                         })
                     }

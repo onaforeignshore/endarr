@@ -32,7 +32,12 @@ def should_delete_torrent(
     if delete_policy == "immediate":
         return import_completed
 
-    require_all = policy.get("require_all_conditions", False)
+    operator = policy.get("operator")
+    if operator is None:
+        # backward compatibility: use require_all_conditions
+        require_all = policy.get("require_all_conditions", False)
+    else:
+        require_all = (operator == "all")
 
     triggers = []
     if delete_policy in ("ratio", "all"):

@@ -87,6 +87,9 @@
     align-items: center;
     gap: 12px;
 }
+.error-text {
+    color: var(--danger-color);
+}
 
 /* ============================================================
    GLOBAL RESET & BASE
@@ -105,7 +108,9 @@ body {
     display: flex;
     height: 100vh;
     overflow: hidden;
-    transition: background-color 0.2s, color 0.2s;
+    transition:
+        background-color 0.2s,
+        color 0.2s;
 }
 
 /* ============================================================
@@ -269,7 +274,9 @@ label {
     margin-bottom: 8px;
     color: var(--text-secondary);
 }
-input, select, textarea {
+input,
+select,
+textarea {
     width: 100%;
     padding: 10px 12px;
     background: var(--input-bg);
@@ -279,7 +286,9 @@ input, select, textarea {
     font-size: 0.9rem;
     font-family: 'Inter', monospace;
 }
-input:focus, select:focus, textarea:focus {
+input:focus,
+select:focus,
+textarea:focus {
     outline: none;
     border-color: var(--accent-color);
 }
@@ -371,7 +380,9 @@ button:hover {
 .test-btn {
     min-width: 60px;
     width: 60px;
-    transition: background-color 0.2s ease, color 0.2s ease;
+    transition:
+        background-color 0.2s ease,
+        color 0.2s ease;
 }
 .test-btn.success {
     background: var(--success-color) !important;
@@ -403,7 +414,9 @@ button:hover {
     gap: 8px;
     height: 100%;
     padding: 0 16px;
-    transition: transform 0.25s ease, opacity 0.2s ease;
+    transition:
+        transform 0.25s ease,
+        opacity 0.2s ease;
 }
 .slide-btn.success {
     background: var(--success-color);
@@ -433,7 +446,9 @@ button:hover {
     gap: 8px;
     transform: translateY(100%);
     opacity: 0;
-    transition: transform 0.25s ease, opacity 0.2s ease;
+    transition:
+        transform 0.25s ease,
+        opacity 0.2s ease;
 }
 .slide-btn.success .success-content {
     transform: translateY(0);
@@ -469,7 +484,9 @@ button:hover {
     top: 0;
     left: 0;
     font-size: 1rem;
-    transition: transform 0.25s ease, opacity 0.2s ease;
+    transition:
+        transform 0.25s ease,
+        opacity 0.2s ease;
 }
 .icon-btn-feedback .fa-check,
 .icon-btn-feedback .fa-times {

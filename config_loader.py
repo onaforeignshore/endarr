@@ -8,13 +8,12 @@ import os
 from copy import deepcopy
 from typing import Any, Dict, List, Optional
 
-from ruamel.yaml import YAML
-
 from config_validator import (  # noqa: F401
     ValidationIssue,
     normalize_config,
     validate_config,
 )
+from ruamel.yaml import YAML
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +31,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         "strike_action": "delete",
         "strike_blacklist": False,
         "policy_blacklist": False,
-        "require_all_conditions": False,
+        "operator": "any",     # "any" = OR, "all" = AND
         "ratio_goal": 2.0,
         "seed_time_seconds": 86400,
         "upload_amount_bytes": 0,
