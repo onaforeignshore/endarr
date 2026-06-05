@@ -1,3 +1,15 @@
+## v0.1.3 (2026-06-05)
+
+### Security
+
+- Upgraded `flask` to 3.1.3 (fixes missing `Vary: Cookie` header), `requests` to 2.33.0 (fixes `.netrc` credential leak and insecure temp file reuse), and `gunicorn` to 23.0.0 (fixes request smuggling). All Dependabot alerts are now resolved.
+
+## v0.1.2 (2026-06-05)
+
+### Security
+
+- **Dependency updates**: Upgraded `gunicorn` to 23.0.0, `requests` to 2.32.3, and `flask` to 3.1.0 to fix known vulnerabilities (request smuggling, credential leak, temp file reuse, etc.).
+
 ## v0.1.1 (2026-06-05)
 
 ### Fixed
