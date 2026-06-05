@@ -1,3 +1,20 @@
+## v0.1.1 (2026-06-05)
+
+### Fixed
+
+- **Integrations page**: Restored missing download client modal fields and Test button.
+- **qBittorrent authentication**: Added `Referer` header and handle `204 No Content` response (API v2 compatibility).
+- **Password handling**: Test button now uses existing password when editing a client.
+- **CSS**: Added success/error styles for test icons.
+
+### Changed
+
+- None.
+
+### Removed
+
+- None.
+
 ## v0.1.0 (2026-05-16)
 
 ### Added
