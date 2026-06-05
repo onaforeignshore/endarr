@@ -394,6 +394,16 @@ button:hover {
     border-color: var(--danger-color) !important;
     color: white !important;
 }
+.test-icon.success {
+    background: var(--success-color) !important;
+    border-color: var(--success-color) !important;
+    color: white !important;
+}
+.test-icon.error {
+    background: var(--danger-color) !important;
+    border-color: var(--danger-color) !important;
+    color: white !important;
+}
 .slide-btn {
     background: var(--button-bg);
     border: 1px solid var(--border-color);

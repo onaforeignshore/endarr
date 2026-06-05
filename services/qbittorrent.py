@@ -57,8 +57,15 @@ class QBittorrentClient(DownloadClient):
             resp = self.session.post(
                 f"{self.base_url}/api/v2/auth/login",
                 data={"username": self.username, "password": self.password},
+                headers={"Referer": self.base_url},
                 timeout=self.timeout,
             )
+            # For qBittorrent API v2: successful login returns 204 No Content
+            if resp.status_code == 204:
+                self._logged_in = True
+                logger.debug("{bold}QBittorrent{reset} Login successful")
+                return
+            # For older API versions: check for "Ok." in response body
             resp.raise_for_status()
             if resp.text.strip() == "Ok.":
                 self._logged_in = True

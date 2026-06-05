@@ -116,8 +116,12 @@ export function initIntegrationsForm(loadConfig, saveConfig, apiCall) {
                     api_key: client.api_key,
                 }),
             })
+            // Change icon to checkmark and show success feedback
+            iconElement.querySelector('i').className = 'fas fa-check'
             showIconFeedback(iconElement, 'success')
         } catch (err) {
+            // Change icon to cross and show error feedback
+            iconElement.querySelector('i').className = 'fas fa-times'
             showIconFeedback(iconElement, 'error')
         } finally {
             setTimeout(() => {
@@ -309,7 +313,234 @@ export function initIntegrationsForm(loadConfig, saveConfig, apiCall) {
 
     // ========== DOWNLOAD CLIENTS ==========
     const clientFieldTemplates = {
-        /* unchanged – same as original */
+        qbittorrent: [
+            {
+                name: 'host',
+                label: 'Host',
+                type: 'text',
+                placeholder: 'gluetun or localhost',
+                default: 'gluetun',
+                required: true,
+            },
+            {
+                name: 'port',
+                label: 'Port',
+                type: 'number',
+                placeholder: '8080',
+                default: 8080,
+                required: true,
+                min: 1,
+                max: 65535,
+            },
+            { name: 'username', label: 'Username', type: 'text', placeholder: '', default: '' },
+            { name: 'password', label: 'Password', type: 'password', placeholder: '', default: '' },
+            { name: 'use_ssl', label: 'Use SSL', type: 'checkbox', default: false },
+            {
+                name: 'category',
+                label: 'Category (optional)',
+                type: 'text',
+                placeholder: 'e.g., endarr',
+                default: '',
+            },
+            {
+                name: 'timeout_seconds',
+                label: 'Timeout (seconds)',
+                type: 'number',
+                placeholder: '10',
+                default: 10,
+                min: 1,
+                'data-field': 'download_clients.timeout_seconds',
+            },
+        ],
+        transmission: [
+            {
+                name: 'host',
+                label: 'Host',
+                type: 'text',
+                placeholder: 'transmission',
+                default: 'transmission',
+                required: true,
+            },
+            {
+                name: 'port',
+                label: 'Port',
+                type: 'number',
+                placeholder: '9091',
+                default: 9091,
+                required: true,
+                min: 1,
+                max: 65535,
+            },
+            {
+                name: 'username',
+                label: 'Username (optional)',
+                type: 'text',
+                placeholder: '',
+                default: '',
+            },
+            {
+                name: 'password',
+                label: 'Password (optional)',
+                type: 'password',
+                placeholder: '',
+                default: '',
+            },
+            {
+                name: 'timeout_seconds',
+                label: 'Timeout (seconds)',
+                type: 'number',
+                placeholder: '10',
+                default: 10,
+                min: 1,
+                'data-field': 'download_clients.timeout_seconds',
+            },
+        ],
+        deluge: [
+            {
+                name: 'host',
+                label: 'Host',
+                type: 'text',
+                placeholder: 'deluge',
+                default: 'deluge',
+                required: true,
+            },
+            {
+                name: 'port',
+                label: 'Port',
+                type: 'number',
+                placeholder: '58846',
+                default: 58846,
+                required: true,
+                min: 1,
+                max: 65535,
+            },
+            { name: 'username', label: 'Username', type: 'text', placeholder: '', default: '' },
+            { name: 'password', label: 'Password', type: 'password', placeholder: '', default: '' },
+            {
+                name: 'timeout_seconds',
+                label: 'Timeout (seconds)',
+                type: 'number',
+                placeholder: '10',
+                default: 10,
+                min: 1,
+                'data-field': 'download_clients.timeout_seconds',
+            },
+        ],
+        rtorrent: [
+            {
+                name: 'host',
+                label: 'Host',
+                type: 'text',
+                placeholder: 'rtorrent',
+                default: 'rtorrent',
+                required: true,
+            },
+            {
+                name: 'port',
+                label: 'Port',
+                type: 'number',
+                placeholder: '80',
+                default: 80,
+                required: true,
+                min: 1,
+                max: 65535,
+            },
+            {
+                name: 'rpc_path',
+                label: 'RPC Path',
+                type: 'text',
+                placeholder: '/RPC2',
+                default: '/RPC2',
+            },
+            {
+                name: 'username',
+                label: 'Username (optional)',
+                type: 'text',
+                placeholder: '',
+                default: '',
+            },
+            {
+                name: 'password',
+                label: 'Password (optional)',
+                type: 'password',
+                placeholder: '',
+                default: '',
+            },
+            { name: 'use_ssl', label: 'Use SSL', type: 'checkbox', default: false },
+            {
+                name: 'timeout_seconds',
+                label: 'Timeout (seconds)',
+                type: 'number',
+                placeholder: '10',
+                default: 10,
+                min: 1,
+                'data-field': 'download_clients.timeout_seconds',
+            },
+        ],
+        utorrent: [
+            {
+                name: 'host',
+                label: 'Host',
+                type: 'text',
+                placeholder: 'utorrent',
+                default: 'utorrent',
+                required: true,
+            },
+            {
+                name: 'port',
+                label: 'Port',
+                type: 'number',
+                placeholder: '8080',
+                default: 8080,
+                required: true,
+                min: 1,
+                max: 65535,
+            },
+            { name: 'username', label: 'Username', type: 'text', placeholder: '', default: '' },
+            { name: 'password', label: 'Password', type: 'password', placeholder: '', default: '' },
+            { name: 'use_ssl', label: 'Use SSL', type: 'checkbox', default: false },
+            {
+                name: 'timeout_seconds',
+                label: 'Timeout (seconds)',
+                type: 'number',
+                placeholder: '10',
+                default: 10,
+                min: 1,
+                'data-field': 'download_clients.timeout_seconds',
+            },
+        ],
+        flood: [
+            {
+                name: 'host',
+                label: 'Host',
+                type: 'text',
+                placeholder: 'flood',
+                default: 'flood',
+                required: true,
+            },
+            {
+                name: 'port',
+                label: 'Port',
+                type: 'number',
+                placeholder: '3000',
+                default: 3000,
+                required: true,
+                min: 1,
+                max: 65535,
+            },
+            { name: 'username', label: 'Username', type: 'text', placeholder: '', default: '' },
+            { name: 'password', label: 'Password', type: 'password', placeholder: '', default: '' },
+            { name: 'use_ssl', label: 'Use SSL', type: 'checkbox', default: false },
+            {
+                name: 'timeout_seconds',
+                label: 'Timeout (seconds)',
+                type: 'number',
+                placeholder: '10',
+                default: 10,
+                min: 1,
+                'data-field': 'download_clients.timeout_seconds',
+            },
+        ],
     }
 
     function renderDownloadClientFields(type, isEditMode = false) {
@@ -442,8 +673,10 @@ export function initIntegrationsForm(loadConfig, saveConfig, apiCall) {
                 method: 'POST',
                 body: JSON.stringify({ type: client.type, ...client }),
             })
+            iconElement.querySelector('i').className = 'fas fa-check'
             showIconFeedback(iconElement, 'success')
         } catch (err) {
+            iconElement.querySelector('i').className = 'fas fa-times'
             showIconFeedback(iconElement, 'error')
         } finally {
             setTimeout(() => {
@@ -515,6 +748,63 @@ export function initIntegrationsForm(loadConfig, saveConfig, apiCall) {
                   ]
                 : [],
             rightButtons: [
+                {
+                    text: 'Test',
+                    class: 'secondary-btn test-btn',
+                    onClick: async (event, btnElement) => {
+                        const type = document.getElementById('modalDownloadType').value
+                        const fields = clientFieldTemplates[type]
+                        const testClient = { type }
+                        let isValid = true
+                        fields.forEach((f) => {
+                            const el = document.getElementById(`dl_${f.name}`)
+                            if (el) {
+                                let value = f.type === 'checkbox' ? el.checked : el.value.trim()
+                                // For password field in edit mode, if empty, use existing password from client
+                                if (f.name === 'password' && isEdit && !value && client) {
+                                    value = client.password || ''
+                                }
+                                if (f.required && !value) {
+                                    showToast(`${f.label} is required`, 'error')
+                                    isValid = false
+                                }
+                                testClient[f.name] = value
+                            }
+                        })
+                        if (!isValid) return false
+                        const watchdogEl = document.getElementById('dl_watchdog_interval')
+                        if (watchdogEl && watchdogEl.value.trim()) {
+                            testClient.watchdog_interval = parseInt(watchdogEl.value, 10)
+                        }
+                        // Clean up undefined fields
+                        Object.keys(testClient).forEach(
+                            (k) => testClient[k] === undefined && delete testClient[k]
+                        )
+                        const originalText = btnElement.innerText
+                        btnElement.innerHTML = '<i class="fas fa-spinner fa-pulse"></i>'
+                        try {
+                            await apiCall('/api/v1/test_download_client', {
+                                method: 'POST',
+                                body: JSON.stringify(testClient),
+                            })
+                            btnElement.innerHTML = '<i class="fas fa-check"></i>'
+                            btnElement.classList.add('success')
+                            setTimeout(() => {
+                                btnElement.innerHTML = originalText
+                                btnElement.classList.remove('success')
+                            }, 1500)
+                        } catch (err) {
+                            btnElement.innerHTML = '<i class="fas fa-times"></i>'
+                            btnElement.classList.add('error')
+                            setTimeout(() => {
+                                btnElement.innerHTML = originalText
+                                btnElement.classList.remove('error')
+                            }, 1500)
+                            showToast(`Connection failed: ${err.message}`, 'error')
+                        }
+                        return false
+                    },
+                },
                 { text: 'Cancel', class: 'secondary-btn' },
                 {
                     text: isEdit ? 'Save' : 'Add',

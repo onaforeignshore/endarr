@@ -700,7 +700,7 @@ def api_test_download_client():
             session = requests.Session()
             login_url = f"{url}/api/v2/auth/login"
             resp = session.post(login_url, data={"username": username, "password": password}, timeout=10)
-            if resp.text.strip() != "Ok.":
+            if resp.status_code not in (200, 204):
                 return jsonify({"error": "Invalid credentials"}), 400
             torrents_url = f"{url}/api/v2/torrents/info"
             resp2 = session.get(torrents_url, timeout=10)
