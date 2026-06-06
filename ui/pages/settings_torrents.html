@@ -12,7 +12,10 @@
     <p class="section-note">What to do after a torrent is successfully imported.</p>
 
     <div class="form-grid">
-        <label for="globalDeletePolicyMode">Policy Mode</label>
+        <label for="globalDeletePolicyMode">
+            Policy Mode
+            <span class="tooltip"><i class="fas fa-question-circle tooltip-icon"></i><span class="tooltip-text">Select how Endarr decides when to delete torrents after import. Calculated uses conditions you define.</span></span>
+        </label>
         <div class="input-wrapper">
             <select id="globalDeletePolicyMode" data-field="defaults.delete_policy">
                 <option value="none">None</option>
@@ -60,9 +63,8 @@
                         </span>
                     </label>
                     <div class="input-wrapper">
-                        <input type="text" id="uploadAmount" data-field="defaults.upload_amount_bytes" value="0" data-byte-input aria-describedby="uploadAmountHelper">
+                        <input type="text" id="uploadAmount" data-field="defaults.upload_amount_bytes" data-numeric-helper data-unit="bytes" data-zero-label="Disabled" value="0">
                         <span class="unit-label">bytes</span>
-                        <span class="helper-text" id="uploadAmountHelper">(0 B)</span>
                     </div>
                     <div aria-hidden="true"></div>
                     <div class="error-message" id="uploadAmountError" style="display: none;" role="alert"></div>
@@ -75,9 +77,8 @@
                         </span>
                     </label>
                     <div class="input-wrapper">
-                        <input type="text" id="successIdleSeconds" data-field="defaults.idle_seconds" data-duration value="3600" aria-describedby="successIdleHelper">
+                        <input type="text" id="successIdleSeconds" data-field="defaults.idle_seconds" data-numeric-helper data-unit="seconds" data-zero-label="Disabled" value="3600">
                         <span class="unit-label">seconds</span>
-                        <span class="helper-text" id="successIdleHelper">(1 hour)</span>
                     </div>
                     <div aria-hidden="true"></div>
                     <div class="error-message" id="successIdleError" style="display: none;" role="alert"></div>
@@ -93,7 +94,7 @@
                         </span>
                     </label>
                     <div class="input-wrapper">
-                        <input type="number" id="minSeeders" data-field="defaults.min_seeders" value="0" min="0">
+                        <input type="number" id="minSeeders" data-field="defaults.min_seeders" data-numeric-helper data-zero-label="Disabled" value="0" min="0">
                     </div>
                     <div aria-hidden="true"></div>
                     <div class="error-message" id="minSeedersError" style="display: none;" role="alert"></div>
@@ -106,9 +107,8 @@
                         </span>
                     </label>
                     <div class="input-wrapper">
-                        <input type="text" id="successAvailabilitySeconds" data-field="defaults.no_availability_seconds" data-duration value="7200" aria-describedby="successAvailabilityHelper">
+                        <input type="text" id="successAvailabilitySeconds" data-field="defaults.no_availability_seconds" data-numeric-helper data-unit="seconds" data-zero-label="Disabled" value="7200">
                         <span class="unit-label">seconds</span>
-                        <span class="helper-text" id="successAvailabilityHelper">(2 hours)</span>
                     </div>
                     <div aria-hidden="true"></div>
                     <div class="error-message" id="successAvailabilityError" style="display: none;" role="alert"></div>
@@ -144,11 +144,15 @@
             </div>
             <div class="trigger-fields" id="idleSettings">
                 <div class="form-grid">
-                    <label for="problemIdleSeconds">Idle time</label>
+                    <label for="problemIdleSeconds">
+                        Idle time
+                        <span class="tooltip"><i class="fas fa-question-circle tooltip-icon" aria-hidden="true"></i>
+                            <span class="tooltip-text" role="tooltip">Delete if no upload activity for this duration (0 = disabled).</span>
+                        </span>
+                    </label>
                     <div class="input-wrapper">
-                        <input type="text" id="problemIdleSeconds" data-field="problematic_torrents.idle_seconds" data-duration value="3600" aria-describedby="problemIdleHelper">
+                        <input type="text" id="problemIdleSeconds" data-field="problematic_torrents.idle_seconds" data-numeric-helper data-unit="seconds" data-zero-label="Disabled" value="3600">
                         <span class="unit-label">seconds</span>
-                        <span class="helper-text" id="problemIdleHelper">(1 hour)</span>
                     </div>
                     <div aria-hidden="true"></div>
                     <div class="error-message" id="problemIdleError" style="display: none;" role="alert"></div>
@@ -166,11 +170,15 @@
             </div>
             <div class="trigger-fields" id="availabilitySettings">
                 <div class="form-grid">
-                    <label for="problemAvailabilitySeconds">Timeout</label>
+                    <label for="problemAvailabilitySeconds">
+                        Timeout
+                        <span class="tooltip"><i class="fas fa-question-circle tooltip-icon" aria-hidden="true"></i>
+                            <span class="tooltip-text" role="tooltip">Delete if zero seeds and peers for this duration (0 = disabled).</span>
+                        </span>
+                    </label>
                     <div class="input-wrapper">
-                        <input type="text" id="problemAvailabilitySeconds" data-field="problematic_torrents.availability_seconds" data-duration value="7200" aria-describedby="problemAvailabilityHelper">
+                        <input type="text" id="problemAvailabilitySeconds" data-field="problematic_torrents.availability_seconds" data-numeric-helper data-unit="seconds" data-zero-label="Disabled" value="7200">
                         <span class="unit-label">seconds</span>
-                        <span class="helper-text" id="problemAvailabilityHelper">(2 hours)</span>
                     </div>
                     <div aria-hidden="true"></div>
                     <div class="error-message" id="problemAvailabilityError" style="display: none;" role="alert"></div>
@@ -188,27 +196,41 @@
             </div>
             <div class="trigger-fields" id="stalledSettings">
                 <div class="form-grid">
-                    <label for="stalledMinAge">Min age</label>
+                    <label for="stalledMinAge">
+                        Min age
+                        <span class="tooltip"><i class="fas fa-question-circle tooltip-icon" aria-hidden="true"></i>
+                            <span class="tooltip-text" role="tooltip">Minimum age before considering a torrent stalled (0 = disabled).</span>
+                        </span>
+                    </label>
                     <div class="input-wrapper">
-                        <input type="text" id="stalledMinAge" data-field="problematic_torrents.stalled_min_age" data-duration value="300" aria-describedby="stalledMinAgeHelper">
+                        <input type="text" id="stalledMinAge" data-field="problematic_torrents.stalled_min_age" data-numeric-helper data-unit="seconds" data-zero-label="Disabled" value="300">
                         <span class="unit-label">seconds</span>
-                        <span class="helper-text" id="stalledMinAgeHelper">(5 minutes)</span>
                     </div>
                     <div aria-hidden="true"></div>
                     <div class="error-message" id="stalledMinAgeError" style="display: none;" role="alert"></div>
                 </div>
                 <div class="form-grid">
-                    <label for="stalledMinProgress">Min progress</label>
+                    <label for="stalledMinProgress">
+                        Min progress
+                        <span class="tooltip"><i class="fas fa-question-circle tooltip-icon" aria-hidden="true"></i>
+                            <span class="tooltip-text" role="tooltip">Minimum progress fraction (0.0–1.0) to be considered stalled (0 = disabled).</span>
+                        </span>
+                    </label>
                     <div class="input-wrapper">
-                        <input type="number" id="stalledMinProgress" data-field="problematic_torrents.stalled_min_progress" value="0.05" step="0.01" min="0" max="1">
+                        <input type="number" id="stalledMinProgress" data-field="problematic_torrents.stalled_min_progress" data-numeric-helper data-percentage data-zero-label="Disabled" value="0.05" step="0.01" min="0" max="1">
                     </div>
                     <div aria-hidden="true"></div>
                     <div class="error-message" id="stalledMinProgressError" style="display: none;" role="alert"></div>
                 </div>
                 <div class="form-grid">
-                    <label for="stalledStrikeThreshold">Strike threshold</label>
+                    <label for="stalledStrikeThreshold">
+                        Strike threshold
+                        <span class="tooltip"><i class="fas fa-question-circle tooltip-icon" aria-hidden="true"></i>
+                            <span class="tooltip-text" role="tooltip">Number of consecutive stall strikes before deletion (minimum 1).</span>
+                        </span>
+                    </label>
                     <div class="input-wrapper">
-                        <input type="number" id="stalledStrikeThreshold" data-field="problematic_torrents.stalled_strike_threshold" value="3" min="1">
+                        <input type="number" id="stalledStrikeThreshold" data-field="problematic_torrents.stalled_strike_threshold" data-numeric-helper value="3" min="1">
                     </div>
                     <div aria-hidden="true"></div>
                     <div class="error-message" id="stalledStrikeThresholdError" style="display: none;" role="alert"></div>
@@ -226,20 +248,29 @@
             </div>
             <div class="trigger-fields" id="slowSpeedSettings">
                 <div class="form-grid">
-                    <label for="slowSpeedKb">Min speed</label>
+                    <label for="slowSpeedKb">
+                        Min speed
+                        <span class="tooltip"><i class="fas fa-question-circle tooltip-icon" aria-hidden="true"></i>
+                            <span class="tooltip-text" role="tooltip">Minimum download speed in KB/s (0 = disabled).</span>
+                        </span>
+                    </label>
                     <div class="input-wrapper">
-                        <input type="number" id="slowSpeedKb" data-field="problematic_torrents.slow_speed_kb" value="10" min="1">
+                        <input type="number" id="slowSpeedKb" data-field="problematic_torrents.slow_speed_kb" data-numeric-helper data-unit="KB/s" data-zero-label="Disabled" value="10" min="0">
                         <span class="unit-label">KB/s</span>
                     </div>
                     <div aria-hidden="true"></div>
                     <div class="error-message" id="slowSpeedKbError" style="display: none;" role="alert"></div>
                 </div>
                 <div class="form-grid">
-                    <label for="slowSpeedDuration">Duration</label>
+                    <label for="slowSpeedDuration">
+                        Duration
+                        <span class="tooltip"><i class="fas fa-question-circle tooltip-icon" aria-hidden="true"></i>
+                            <span class="tooltip-text" role="tooltip">How long the speed must stay below the minimum before deletion (0 = disabled).</span>
+                        </span>
+                    </label>
                     <div class="input-wrapper">
-                        <input type="text" id="slowSpeedDuration" data-field="problematic_torrents.slow_speed_duration" data-duration value="300" aria-describedby="slowSpeedDurationHelper">
+                        <input type="text" id="slowSpeedDuration" data-field="problematic_torrents.slow_speed_duration" data-numeric-helper data-unit="seconds" data-zero-label="Disabled" value="300">
                         <span class="unit-label">seconds</span>
-                        <span class="helper-text" id="slowSpeedDurationHelper">(5 minutes)</span>
                     </div>
                     <div aria-hidden="true"></div>
                     <div class="error-message" id="slowSpeedDurationError" style="display: none;" role="alert"></div>
@@ -258,14 +289,21 @@
 
     <!-- Advanced Field -->
     <div class="advanced-field" style="display: none;">
-        <div class="form-grid">
-            <label for="maxDownloadTime">Maximum Download Time</label>
-            <div class="input-wrapper">
-                <input type="text" id="maxDownloadTime" data-field="problematic_torrents.max_download_time_hours" value="0">
-                <span class="unit-label">hours</span>
+        <div class="max-download-group">
+            <div class="form-grid">
+                <label for="maxDownloadTime">
+                    Maximum Download Time
+                    <span class="tooltip"><i class="fas fa-question-circle tooltip-icon" aria-hidden="true"></i>
+                        <span class="tooltip-text" role="tooltip">Delete torrent if download exceeds this time (0 = disabled).</span>
+                    </span>
+                </label>
+                <div class="input-wrapper">
+                    <input type="text" id="maxDownloadTime" data-field="problematic_torrents.max_download_time_hours" data-numeric-helper data-unit="hours" data-zero-label="Disabled" value="0">
+                    <span class="unit-label">hours</span>
+                </div>
+                <div aria-hidden="true"></div>
+                <div class="error-message" id="maxDownloadTimeError" style="display: none;" role="alert"></div>
             </div>
-            <div aria-hidden="true"></div>
-            <div class="error-message" id="maxDownloadTimeError" style="display: none;" role="alert"></div>
         </div>
     </div>
 
@@ -299,7 +337,7 @@
             </span>
         </label>
         <div class="input-wrapper">
-            <input type="text" id="torrentAgeDays" data-field="general_cleanup.torrent_age_days" value="0">
+            <input type="text" id="torrentAgeDays" data-field="general_cleanup.torrent_age_days" data-numeric-helper data-unit="days" data-zero-label="Disabled" value="0">
             <span class="unit-label">days</span>
         </div>
         <div aria-hidden="true"></div>

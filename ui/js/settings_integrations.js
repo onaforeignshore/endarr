@@ -1,6 +1,6 @@
 // ui/js/settings_integrations.js
 
-import { displayFormErrors, initDurationInputs } from './configValidator.js'
+import { displayFormErrors, initNumericHelpers } from './configValidator.js'
 import { openModal } from './modal.js'
 import {
     showToast,
@@ -901,7 +901,7 @@ export function initIntegrationsForm(loadConfig, saveConfig, apiCall) {
                     if (watchdogEl && client.watchdog_interval)
                         watchdogEl.value = client.watchdog_interval
                 }
-                initDurationInputs(document.getElementById('globalModal'))
+                initNumericHelpers(document.getElementById('globalModal'))
 
                 const currentClient = isEdit ? client : tempNewDownloadClient
                 const arrIds = currentClient?.arrClientIds || []

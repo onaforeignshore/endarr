@@ -1,7 +1,7 @@
 // ui/js/configValidator.js
 // Shared configuration validation rules and error display utilities
 
-import { escapeHtml } from './utils.js'
+import { escapeHtml, formatBytes, formatDuration } from './utils.js'
 
 /**
  * Validates a non‑negative integer.
@@ -238,124 +238,56 @@ export function displayFormErrors(errors, container = document) {
     })
 }
 
-// Parse duration string (e.g., "2h", "90m", "1d 3h") to seconds
-export function parseDurationToSeconds(value) {
-    if (typeof value === 'number') return value
-    if (!value || typeof value !== 'string') return null
-    const trimmed = value.trim().toLowerCase()
-    if (/^\d+$/.test(trimmed)) return parseInt(trimmed, 10)
-
-    let total = 0
-    const regex = /(\d+)\s*([dhms])?/g
-    let match
-    while ((match = regex.exec(trimmed)) !== null) {
-        const num = parseInt(match[1], 10)
-        const unit = match[2] || 's'
-        if (unit === 'd') total += num * 86400
-        else if (unit === 'h') total += num * 3600
-        else if (unit === 'm') total += num * 60
-        else total += num
-    }
-    return total > 0 ? total : null
-}
-
-// Format seconds to human readable (e.g., "1h 30m")
-export function formatSeconds(seconds) {
-    if (!seconds || seconds < 0) return '0s'
-    const days = Math.floor(seconds / 86400)
-    const hours = Math.floor((seconds % 86400) / 3600)
-    const minutes = Math.floor((seconds % 3600) / 60)
-    const secs = seconds % 60
-    const parts = []
-    if (days) parts.push(`${days}d`)
-    if (hours) parts.push(`${hours}h`)
-    if (minutes) parts.push(`${minutes}m`)
-    if (secs || parts.length === 0) parts.push(`${secs}s`)
-    return parts.join(' ')
-}
-
-// Initialize duration inputs with blur handler and helper display
-// Initialize duration inputs: parse on blur, update existing helper span
-export function initDurationInputs(container = document) {
-    container.querySelectorAll('[data-duration]').forEach((input) => {
-        // Find the associated helper span (assumes it's the next .helper-text sibling)
-        const helper = input.parentNode?.querySelector('.helper-text')
-
+/**
+ * Initialise helper text for numeric inputs with data-numeric-helper attribute.
+ * Creates/updates a .helper-text span and formats the value based on data-unit,
+ * data-percentage, and data-zero-label.
+ * @param {HTMLElement} [container=document] - Container to scan for inputs.
+ */
+export function initNumericHelpers(container = document) {
+    container.querySelectorAll('[data-numeric-helper]').forEach((input) => {
+        // Find or create helper span
+        let helper = input.nextElementSibling?.classList.contains('helper-text')
+            ? input.nextElementSibling
+            : null
+        if (!helper && input.parentNode?.classList.contains('input-wrapper')) {
+            helper = input.parentNode.querySelector('.helper-text')
+        }
+        if (!helper) {
+            helper = document.createElement('span')
+            helper.className = 'helper-text'
+            if (input.parentNode?.classList.contains('input-wrapper')) {
+                input.parentNode.appendChild(helper)
+            } else {
+                input.insertAdjacentElement('afterend', helper)
+            }
+        }
+        const unit = input.dataset.unit
+        const isPercentage = input.dataset.percentage !== undefined
+        const zeroLabel = input.dataset.zeroLabel
         const updateHelper = () => {
-            const seconds = parseInt(input.value, 10)
-            if (!isNaN(seconds) && helper) {
-                if (seconds === 0) {
-                    helper.textContent = '(Disabled)'
-                } else {
-                    helper.textContent = `(${formatSeconds(seconds)})`
-                }
+            let val = parseFloat(input.value)
+            if (isNaN(val)) val = 0
+            if (val === 0 && zeroLabel !== undefined) {
+                helper.textContent = `(${zeroLabel})`
+                return
+            }
+            if (val === 0) {
+                helper.textContent = ''
+                return
+            }
+            if (unit === 'seconds') {
+                helper.textContent = `(${formatDuration(val)})`
+            } else if (unit === 'bytes') {
+                helper.textContent = `(${formatBytes(val)})`
+            } else if (isPercentage) {
+                const percent = val > 1 ? val : Math.round(val * 100)
+                helper.textContent = `(${percent}%)`
+            } else {
+                helper.textContent = ''
             }
         }
+        input.addEventListener('input', updateHelper)
         updateHelper()
-
-        // Remove existing listener to avoid duplicates, then attach new one
-        input.removeEventListener('blur', input._durationBlurHandler)
-        const blurHandler = () => {
-            const parsed = parseDurationToSeconds(input.value)
-            if (parsed !== null) {
-                input.value = parsed
-                updateHelper()
-            }
-        }
-        input._durationBlurHandler = blurHandler
-        input.addEventListener('blur', blurHandler)
-    })
-}
-
-// Parse byte string (e.g., "10GB", "500MB", "2KB") to bytes
-export function parseBytesToNumber(value) {
-    if (typeof value === 'number') return value
-    if (!value || typeof value !== 'string') return null
-    const trimmed = value.trim().toLowerCase()
-    if (/^\d+$/.test(trimmed)) return parseInt(trimmed, 10)
-    const match = trimmed.match(/^(\d+(?:\.\d+)?)\s*([kmgt]?b?)$/)
-    if (!match) return null
-    const num = parseFloat(match[1])
-    const unit = match[2].replace('b', '')
-    const multipliers = { '': 1, k: 1024, m: 1024 ** 2, g: 1024 ** 3, t: 1024 ** 4 }
-    return Math.round(num * (multipliers[unit] || 1))
-}
-
-// Format bytes to human readable (e.g., "10 GB")
-export function formatBytes(bytes) {
-    if (!bytes || bytes < 0) return '0 B'
-    const units = ['B', 'KB', 'MB', 'GB', 'TB']
-    const i = Math.floor(Math.log(bytes) / Math.log(1024))
-    const val = (bytes / Math.pow(1024, i)).toFixed(i === 0 ? 0 : 2)
-    return `${val} ${units[i]}`
-}
-
-// Initialize byte inputs: parse on blur, update existing helper span
-export function initByteInputs(container = document) {
-    container.querySelectorAll('[data-byte-input]').forEach((input) => {
-        const helper = input.parentNode?.querySelector('.helper-text')
-
-        const updateHelper = () => {
-            const bytes = parseInt(input.value, 10)
-            if (!isNaN(bytes) && helper) {
-                if (bytes === 0) {
-                    helper.textContent = '(Disabled)'
-                } else {
-                    helper.textContent = `(${formatBytes(bytes)})`
-                }
-            }
-        }
-        updateHelper()
-
-        input.removeEventListener('blur', input._byteBlurHandler)
-        const blurHandler = () => {
-            const parsed = parseBytesToNumber(input.value)
-            if (parsed !== null) {
-                input.value = parsed
-                updateHelper()
-            }
-        }
-        input._byteBlurHandler = blurHandler
-        input.addEventListener('blur', blurHandler)
     })
 }

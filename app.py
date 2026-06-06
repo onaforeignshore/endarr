@@ -396,7 +396,7 @@ def api_status():
         arr_clients_status.append({"name": name, "connected": connected})
 
     status = {
-        "version": "0.1.2",
+        "version": "0.1.4",
         "download_clients": download_clients_status,
         "arr_clients": arr_clients_status,
         "uptime": uptime_str

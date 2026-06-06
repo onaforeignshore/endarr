@@ -1362,6 +1362,9 @@ a.action-btn {
 .advanced-field {
     transition: opacity 0.2s ease;
 }
+.max-download-group {
+    margin-top: 20px;
+}
 
 /* ============================================================
    PROBLEMATIC TORRENTS GRID

@@ -1,5 +1,5 @@
 // ui/js/settings_general.js
-import { validatePositiveInt, displayFormErrors, initDurationInputs } from './configValidator.js'
+import { validatePositiveInt, displayFormErrors, initNumericHelpers } from './configValidator.js'
 import { openModal } from './modal.js'
 import { SettingsToolbar } from './SettingsToolbar.js'
 import { showToast, showConfirm, showIconFeedback, setupFieldErrorClearing } from './ui-helpers.js'
@@ -196,7 +196,7 @@ export function initGeneralForm(loadConfig, saveConfig) {
             }
         }
 
-        initDurationInputs(document.querySelector('.settings-container') || document)
+        initNumericHelpers(document.querySelector('#pageContent'))
         setupFieldErrorClearing(document.querySelector('#pageContent'))
     }
 

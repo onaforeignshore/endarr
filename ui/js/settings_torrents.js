@@ -5,8 +5,7 @@ import {
     validateProblematicSection,
     validateGeneralCleanupSection,
     displayFormErrors,
-    initDurationInputs,
-    initByteInputs,
+    initNumericHelpers,
 } from './configValidator.js'
 import { openModal } from './modal.js'
 import { SettingsToolbar } from './SettingsToolbar.js'
@@ -479,8 +478,7 @@ export function initTorrentsForm(loadConfig, saveConfig) {
         arrOverrides = rawOverrides.map((ov) => ({ ...ov, arr_id: ov.arr_id || ov.arrId }))
         renderOverrides()
 
-        initDurationInputs(document.querySelector('.settings-container') || document)
-        initByteInputs(document.querySelector('.settings-container') || document)
+        initNumericHelpers(document.querySelector('#pageContent'))
         setupFieldErrorClearing(document.querySelector('#pageContent'))
     }
 

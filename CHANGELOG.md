@@ -1,3 +1,26 @@
+## v0.1.4 (2026-06-06)
+
+### Added
+
+- Unified numeric helper (`initNumericHelpers`) to replace duration/byte helpers.
+- Tooltips for Policy Mode dropdown and problematic torrent numeric fields.
+- `.max-download-group` CSS class to separate Maximum Download Time from error state checkbox.
+
+### Changed
+
+- `formatDuration` now outputs multi‑unit compact strings (e.g., `1d 2h 3m 4s`).
+- Settings pages now use `data-numeric-helper` attributes for consistent helper text.
+- `retentionDays` shows `(Never)` when disabled; other fields show `(Disabled)` when zero.
+
+### Removed
+
+- Old `initDurationInputs`, `initByteInputs`, `parseDurationToSeconds`, `parseBytesToNumber`, `formatSeconds`, and duplicate `formatBytes`.
+
+### Fixed
+
+- Redundant helper text (e.g., `(7 days)` next to `7 days` label) no longer appears.
+- Zero values without `data-zero-label` now show no helper text (unit label remains visible).
+
 ## v0.1.3 (2026-06-05)
 
 ### Security

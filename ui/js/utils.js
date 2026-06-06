@@ -37,15 +37,23 @@ export function formatBytes(bytes) {
 }
 
 /**
- * Format seconds to a compact human‑readable duration (e.g., '1d', '2h 30m').
+ * Format seconds to a compact human‑readable duration with multiple units.
+ * Non‑zero parts are shown; parts are space‑separated (e.g., '1d 2h 3m 4s').
  * @param {number} seconds - Duration in seconds.
- * @returns {string} Compact duration string.
+ * @returns {string} Formatted string. Returns '0s' if seconds <= 0.
  */
 export function formatDuration(seconds) {
-    if (seconds >= 86400) return `${Math.floor(seconds / 86400)}d`
-    if (seconds >= 3600) return `${Math.floor(seconds / 3600)}h`
-    if (seconds >= 60) return `${Math.floor(seconds / 60)}m`
-    return `${seconds}s`
+    if (seconds <= 0) return '0s'
+    const days = Math.floor(seconds / 86400)
+    const hours = Math.floor((seconds % 86400) / 3600)
+    const minutes = Math.floor((seconds % 3600) / 60)
+    const secs = seconds % 60
+    const parts = []
+    if (days) parts.push(`${days}d`)
+    if (hours) parts.push(`${hours}h`)
+    if (minutes) parts.push(`${minutes}m`)
+    if (secs) parts.push(`${secs}s`)
+    return parts.join(' ')
 }
 
 let cachedKey = null
