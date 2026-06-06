@@ -59,12 +59,13 @@ export async function initDashboard() {
         sysHtml += '<div class="status-column"><div class="column-heading">Download Clients</div>'
         const dlClients = status.download_clients || []
         if (dlClients.length) {
-            sysHtml += '<div class="chip-container">'
+            sysHtml +=
+                '<div class="status-column"><div class="column-heading">Watchdog</div><div class="chip-container">'
             dlClients.forEach((c) => {
-                const cls = c.connected ? 'status-chip' : 'status-chip disconnected'
-                sysHtml += `<span class="${cls}" title="${c.connected ? 'Connected' : 'Disconnected'}">${escapeHtml(c.name)}</span>`
+                const cls = c.watchdog_running ? 'status-chip' : 'status-chip disconnected'
+                sysHtml += `<span class="${cls}" title="${c.watchdog_running ? 'Running' : 'Stopped'}">${escapeHtml(c.name)}</span>`
             })
-            sysHtml += '</div>'
+            sysHtml += '</div></div></div>'
         } else {
             sysHtml += '<div class="status-text">None</div>'
         }
