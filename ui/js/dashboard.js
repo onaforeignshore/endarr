@@ -56,21 +56,22 @@ export async function initDashboard() {
 
         let sysHtml = '<div class="system-status-columns">'
 
+        // Column 1: Download Clients
         sysHtml += '<div class="status-column"><div class="column-heading">Download Clients</div>'
         const dlClients = status.download_clients || []
         if (dlClients.length) {
-            sysHtml +=
-                '<div class="status-column"><div class="column-heading">Watchdog</div><div class="chip-container">'
+            sysHtml += '<div class="chip-container">'
             dlClients.forEach((c) => {
-                const cls = c.watchdog_running ? 'status-chip' : 'status-chip disconnected'
-                sysHtml += `<span class="${cls}" title="${c.watchdog_running ? 'Running' : 'Stopped'}">${escapeHtml(c.name)}</span>`
+                const cls = c.connected ? 'status-chip' : 'status-chip disconnected'
+                sysHtml += `<span class="${cls}" title="${c.connected ? 'Connected' : 'Disconnected'}">${escapeHtml(c.name)}</span>`
             })
-            sysHtml += '</div></div></div>'
+            sysHtml += '</div>'
         } else {
             sysHtml += '<div class="status-text">None</div>'
         }
         sysHtml += '</div>'
 
+        // Column 2: ARR Clients
         sysHtml += '<div class="status-column"><div class="column-heading">ARR Clients</div>'
         const arrClients = status.arr_clients || []
         if (arrClients.length) {
@@ -85,11 +86,21 @@ export async function initDashboard() {
         }
         sysHtml += '</div>'
 
-        sysHtml +=
-            '<div class="status-column"><div class="column-heading">Watchdog</div><div class="chip-container">'
-        const anyRunning = dlClients.some((c) => c.watchdog_running)
-        sysHtml += `<span class="status-chip${anyRunning ? '' : ' disconnected'}" title="${anyRunning ? 'Running' : 'Stopped'}">${anyRunning ? 'Running' : 'Stopped'}</span>`
-        sysHtml += '</div></div></div>'
+        // Column 3: Watchdog (per download client)
+        sysHtml += '<div class="status-column"><div class="column-heading">Watchdog</div>'
+        if (dlClients.length) {
+            sysHtml += '<div class="chip-container">'
+            dlClients.forEach((c) => {
+                const cls = c.watchdog_running ? 'status-chip' : 'status-chip disconnected'
+                sysHtml += `<span class="${cls}" title="${c.watchdog_running ? 'Running' : 'Stopped'}">${escapeHtml(c.name)}</span>`
+            })
+            sysHtml += '</div>'
+        } else {
+            sysHtml += '<div class="status-text">None</div>'
+        }
+        sysHtml += '</div>'
+
+        sysHtml += '</div>'
         sysList.innerHTML = sysHtml
 
         const statsRes = await fetch('/api/v1/stats', { headers: { 'X-Api-Key': key } })
