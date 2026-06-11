@@ -10,6 +10,7 @@ from models.blacklist import Blacklist
 from models.database import SessionLocal
 from models.downloads import Download
 from models.grabs import Grab
+from models.pending_import import PendingImport
 from models.torrent_files import TorrentFile
 from utils.titles import normalize_release_title
 from utils.url_utils import extract_domain
@@ -118,6 +119,14 @@ class Watchdog:
                 db.commit()
             except Exception as e:
                 self.logger.exception("{bold}Watchdog{reset} Grab pruning error: %s", e)
+                db.rollback()
+
+            # Cleanup stale pending imports
+            try:
+                self._cleanup_pending_imports(db)
+                db.commit()
+            except Exception as e:
+                self.logger.exception("{bold}Watchdog{reset} Cleaning pending imports error: %s", e)
                 db.rollback()
         finally:
             db.close()
@@ -278,6 +287,16 @@ class Watchdog:
 
             grab_id = grab.id
             self.logger.info("{bold}Watchdog{reset} Matched new torrent {cyan}%s{reset} to grab ID {cyan}%d{reset}", name, grab_id)
+
+            # Check for pending import
+            pending = db.query(PendingImport).filter(PendingImport.hash == torrent_hash).first()
+            if pending:
+                import_completed_at = pending.import_completed_at
+                db.delete(pending)
+                self.logger.info("{bold}Watchdog{reset} Applied pending import for {cyan}%s{reset}", torrent_hash)
+            else:
+                import_completed_at = None
+
             download = Download(
                 hash=torrent_hash,
                 name=name,
@@ -290,6 +309,7 @@ class Watchdog:
                 dangerous_files=0,
                 last_check=time.time(),
                 ignored=False,
+                import_completed_at=import_completed_at,
             )
             db.add(download)
             db.flush()
@@ -624,6 +644,16 @@ class Watchdog:
         deleted = db.query(Grab).filter(Grab.grabbed_at < cutoff).delete()
         if deleted:
             self.logger.info("{bold}Watchdog{reset} Pruned {cyan}%d{reset} old grabs", deleted)
+
+    def _cleanup_pending_imports(self, db) -> None:
+        """Delete pending imports older than configured hours."""
+        cleanup_hours = self.config.get("pending_imports_cleanup_hours", 1)
+        if cleanup_hours <= 0:
+            return
+        cutoff = time.time() - (cleanup_hours * 3600)
+        deleted = db.query(PendingImport).filter(PendingImport.created_at < cutoff).delete()
+        if deleted:
+            self.logger.info("{bold}Watchdog{reset} Cleaned up {cyan}%d{reset} stale pending imports", deleted)
 
     def _trigger_search(self, db, download: Download, torrent_info: Dict[str, Any], delete_reason: str) -> None:
         """Trigger a search in the *Arr for a replacement."""

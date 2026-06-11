@@ -91,6 +91,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         "toast_duration_seconds": 5,
         "log_level": "INFO",
     },
+    "pending_imports_cleanup_hours": 1,
 }
 
 _config_issues: List[ValidationIssue] = []

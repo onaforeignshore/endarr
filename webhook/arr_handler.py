@@ -12,6 +12,7 @@ from models.blacklist import Blacklist
 from models.database import SessionLocal
 from models.downloads import Download
 from models.grabs import Grab
+from models.pending_import import PendingImport
 from services.download_client import DownloadClient
 
 logger = logging.getLogger(__name__)
@@ -192,32 +193,20 @@ def handle_download(data: Dict[str, Any]):
     try:
         download = db.query(Download).filter(Download.hash == download_id.lower()).first()
         if not download:
-            logger.warning("{bold}DownloadEvent{reset} Torrent {cyan}%s{reset} not tracked", download_id)
-            return jsonify({"status": "torrent not tracked"}), 200
+            # No download record yet – create pending import entry
+            pending = PendingImport(
+                hash=download_id.lower(),
+                import_completed_at=time.time(),
+                arr_name=arr_name,
+                media_id=media_id,
+                created_at=time.time(),
+            )
+            db.add(pending)
+            db.commit()
+            logger.info("{bold}DownloadEvent{reset} {yellow}[PENDING]{reset} Recorded pending import for {cyan}%s{reset} (torrent not yet seen in client)", download_id)
+            return jsonify({"status": "pending"}), 200
 
-        # If ignored, try to find grab now
-        if download.ignored:
-            release_title = None
-            if "series" in data:
-                release_title = data.get("episode", {}).get("title")
-                if not release_title:
-                    release_title = data.get("series", {}).get("title")
-            elif "movie" in data:
-                release_title = data["movie"].get("title")
-            elif "artist" in data:
-                release_title = data["artist"].get("artistName")
-
-            if release_title:
-                grab = db.query(Grab).filter(
-                    Grab.release_title.ilike(f"%{release_title}%"),
-                    Grab.arr_name == arr_name
-                ).order_by(Grab.grabbed_at.desc()).first()
-                if grab:
-                    download.grab_id = grab.id
-                    download.ignored = False
-                    logger.info("{bold}DownloadEvent{reset} Matched previously ignored torrent {cyan}%s{reset} to grab {cyan}%d{reset} ({cyan}%s{reset})",
-                                download_id, grab.id, grab.release_title)
-
+        # else existing download: set import_completed_at as before...
         download.import_completed_at = time.time()
 
         if is_upgrade and media_id:

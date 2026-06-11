@@ -8,7 +8,6 @@ import re
 from typing import Any, Dict, List, Optional, Union
 from urllib.parse import urlparse
 
-
 # ============================================================================
 # Constants
 # ============================================================================
@@ -484,6 +483,13 @@ def _validate_ui_preferences(original: dict, merged: dict, issues: List[Validati
                 _add_issue(issues, field, f"Must be >= 3 (found {value})")
 
 
+def _validate_pending_cleanup(original: dict, merged: dict, issues: List[ValidationIssue]) -> None:
+    """Validate pending_imports_cleanup_hours."""
+    if "pending_imports_cleanup_hours" in original:
+        val = original["pending_imports_cleanup_hours"]
+        if not isinstance(val, (int, float)) or val < 0:
+            _add_issue(issues, "pending_imports_cleanup_hours", "Must be a non‑negative number (hours)")
+
 def _validate_arrs_overrides(original: dict, merged: dict, issues: List[ValidationIssue]) -> None:
     """Validate arrs_overrides section."""
     if "arrs_overrides" not in original:
@@ -559,6 +565,7 @@ def validate_config(original: Dict[str, Any], merged: Dict[str, Any]) -> List[Va
     _validate_watchdog(original, merged, issues)
     _validate_stalled_cleanup(original, merged, issues)
     _validate_ui_preferences(original, merged, issues)
+    _validate_pending_cleanup(original, merged, issues)
     _validate_arrs_overrides(original, merged, issues)
 
     return issues
