@@ -4,21 +4,23 @@ webhook_key: "your-secret-key"
 
 # ── ARR Clients ──────────────────────────────
 # At least one ARR client is required.
+# Each ARR must have a unique `id` (URL-safe, e.g., radarr_hd, radarr_4k).
+# This ID is used in the webhook URL as `?arr_client=...` to differentiate multiple instances.
 arrs:
   # -- Radarr (example using Docker hostname) --
   - id: radarr_1
     type: radarr
     name: "Radarr"
     enabled: true
-    url: "http://radarr:7878"                 # Docker DNS, static IP, or FQDN
-    api_key: "your-radarr-api-key"            # Settings → General → API Key
+    url: "http://radarr:7878"
+    api_key: "your-radarr-api-key"
 
   # -- Sonarr (example using static IP) --
   # - id: sonarr_1
   #   type: sonarr
   #   name: "Sonarr"
   #   enabled: true
-  #   url: "http://192.168.1.100:8989"        # Replace with your Sonarr URL
+  #   url: "http://192.168.1.100:8989"
   #   api_key: "your-sonarr-api-key"
 
   # -- Lidarr (example using FQDN) --
@@ -26,7 +28,7 @@ arrs:
   #   type: lidarr
   #   name: "Lidarr"
   #   enabled: true
-  #   url: "http://lidarr.example.com:8686"   # Replace with your Lidarr URL
+  #   url: "http://lidarr.example.com:8686"
   #   api_key: "your-lidarr-api-key"
 
 # ── Download Clients ─────────────────────────
@@ -37,158 +39,112 @@ download_clients:
     type: qbittorrent
     name: "qBittorrent"
     enabled: true
-    host: "qbittorrent.example.com"          # Hostname, IP, or FQDN
+    host: "qbittorrent.example.com"
     port: 8080
     username: "admin"
     password: "your-qbittorrent-password"
     use_ssl: false
     timeout_seconds: 10
     # watchdog_interval: 900                 # Override global watchdog interval (seconds)
+    # arrClientIds: ["radarr_1", "sonarr_1"] # Optional: link this download client to specific ARR IDs
 
   # -- Transmission (example using Docker hostname) --
   # - id: trans_1
   #   type: transmission
   #   name: "Transmission"
   #   enabled: false
-  #   host: "transmission"                    # Docker DNS name
+  #   host: "transmission"
   #   port: 9091
   #   watchdog_interval: 1200                # Optional per‑client override
   #   username: ""
   #   password: ""
-  #   timeout_seconds: 10
 
-  # -- Deluge (example using static IP) --
-  # - id: deluge_1
-  #   type: deluge
-  #   name: "Deluge"
-  #   enabled: false
-  #   host: "192.168.1.101"                   # Static IP on your LAN
-  #   port: 58846
-  #   watchdog_interval: 600                 # Optional per‑client override
-  #   username: ""
-  #   password: ""
-  #   timeout_seconds: 10
-
-  # -- rTorrent (example using FQDN + SSL) --
-  # - id: rtorrent_1
-  #   type: rtorrent
-  #   name: "rTorrent"
-  #   enabled: false
-  #   host: "rtorrent.example.com"            # Custom domain (via reverse proxy)
-  #   port: 443
-  #   rpc_path: "/RPC2"
-  #   use_ssl: true
-  #   watchdog_interval: 900                 # Optional per‑client override
-  #   username: ""
-  #   password: ""
-  #   timeout_seconds: 10
-
-  # -- uTorrent (example using Docker hostname) --
-  # - id: utorrent_1
-  #   type: utorrent
-  #   name: "uTorrent"
-  #   enabled: false
-  #   host: "utorrent"                        # Docker DNS name
-  #   port: 8080
-  #   watchdog_interval: 900                 # Optional per‑client override
-  #   username: ""
-  #   password: ""
-  #   use_ssl: false
-  #   timeout_seconds: 10
-
-  # -- Flood (example using static IP) --
-  # - id: flood_1
-  #   type: flood
-  #   name: "Flood"
-  #   enabled: false
-  #   host: "192.168.1.102"                   # Static IP on your LAN
-  #   port: 3000
-  #   watchdog_interval: 900                 # Optional per‑client override
-  #   username: ""
-  #   password: ""
-  #   use_ssl: false
-  #   timeout_seconds: 10
+  # -- Deluge, rTorrent, uTorrent, Flood examples similar --
+  # ...
 
 # ── Successful Torrents ──────────────────────
 # Default policies for successfully imported torrents.
-# All time/duration fields accept seconds (e.g. 86400) or human-readable strings
-# like "2h", "1d 3h", "90m", "1d". The value is always normalised to seconds.
+# Note: Legacy fields (ratio_goal, seed_time_seconds, etc.) have been removed.
+# Use the "calculated" policy with conditions (see below).
 defaults:
   delete_policy: "none"                       # none | immediate | calculated
-
-  # ratio_goal: 2.0                           # Minimum ratio to reach before deletion
-  # seed_time_seconds: 86400                  # e.g. 86400 or "24h"
-  # upload_amount_bytes: 0                    # Delete after uploading this many bytes
-  #                                           # (0 = disabled)
-  # min_seeders: 0                            # Only delete if swarm has at least this many
-  #                                           # seeders (0 = disabled)
-  # idle_seconds: 3600                        # e.g. 3600 or "1h"
-  # no_availability_seconds: 7200             # e.g. 7200 or "2h"
+  operator: "any"                             # "any" (OR) or "all" (AND) for conditions
 
   # -- Upgrade Handling --
-  # upgrade_action: "move_category"           # move_category | delete_immediate | do_nothing
-  # upgrade_category: "upgraded"              # Category to move old torrent to
+  upgrade_action: "move_category"             # move_category | delete_immediate | do_nothing
+  upgrade_category: "upgraded"                # Category to move old torrent to
 
   # -- Strike System --
-  # strike_threshold: 3                       # Number of consecutive stall strikes
-  # strike_action: "delete"                   # delete | ignore
-  # strike_blacklist: false                   # Blacklist the release when a torrent is
-  #                                           # deleted due to stall strikes?
-  # policy_blacklist: false                   # Blacklist the release when a torrent is
-  #                                           # deleted because its seeding policy was met?
-  # search_on_delete: false                   # Tell *Arr to search for replacement?
-  # require_all_conditions: false             # AND (true) or OR (false) for calculated policy
+  strike_threshold: 3                         # Number of consecutive stall strikes
+  strike_action: "delete"                     # delete | ignore
+  strike_blacklist: false                     # Add to blacklist on strike deletion
+  policy_blacklist: false                     # Add to blacklist when seeding policy is met
+  search_on_delete: false                     # Tell *Arr to search for replacement
+
+# ── Calculated Policy Rules (only used when delete_policy = "calculated") ──
+# These are usually defined in the UI. You can also specify them manually here.
+# deletion_rules:
+#   operator: "any"
+#   conditions:
+#     - type: "ratio"
+#       threshold: 2.0
+#     - type: "time"
+#       threshold: 86400
 
 # ── Problematic Torrents ─────────────────────
 # Conditions that indicate a torrent is dead, stalled, or unwanted.
-# When enabled, the minimum value is usually 1 (except where noted).
-# problematic_torrents:
-  # idle_enabled: false
-  # idle_seconds: 3600                        # e.g. 3600 or "1h"
-  # availability_enabled: false
-  # availability_seconds: 7200                # e.g. 7200 or "2h"
-  # stalled_enabled: false
-  # stalled_min_age: 300                      # e.g. 300 or "5m"
-  # stalled_min_progress: 0.05                # 0.0–1.0; values >1 treated as percentage
-  # stalled_strike_threshold: 3               # Must be ≥ 1
-  # slow_speed_enabled: false
-  # slow_speed_kb: 10                         # Minimum speed in KB/s
-  # slow_speed_duration: 300                  # e.g. 300 or "5m"
-  # error_state_enabled: false
-  # max_download_time_hours: 0                # 0 = disabled
-  # search_on_delete: false
-  # policy_blacklist: false
+problematic_torrents:
+  idle_enabled: false
+  idle_seconds: 3600                          # e.g., 3600 or "1h"
+  availability_enabled: false
+  availability_seconds: 7200                  # e.g., 7200 or "2h"
+  stalled_enabled: false
+  stalled_min_age: 300                        # e.g., 300 or "5m"
+  stalled_min_progress: 0.05                  # 0.0–1.0; values >1 treated as percentage
+  stalled_strike_threshold: 3                 # Must be ≥ 1
+  slow_speed_enabled: false
+  slow_speed_kb: 10                           # Minimum speed in KB/s
+  slow_speed_duration: 300                    # e.g., 300 or "5m"
+  error_state_enabled: false
+  max_download_time_hours: 0                  # 0 = disabled
+  search_on_delete: false
+  policy_blacklist: false
 
 # ── General Cleanup ──────────────────────────
-# general_cleanup:
-  # torrent_age_days: 0                       # 0 = disabled
+general_cleanup:
+  torrent_age_days: 0                         # 0 = disabled
 
 # ── Protection ───────────────────────────────
 # Torrents matching any of these rules will never be automatically deleted.
-# protection:
-  # tags: ["private", "protected"]
-  # categories: ["upgraded"]
-  # tracker_domains: ["*.private-tracker.org"]
+protection:
+  tags: ["private", "protected"]
+  categories: ["upgraded"]
+  tracker_domains: ["*.private-tracker.org"]
 
 # ── Dangerous Extensions ────────────────────
 # Files with these extensions will be blocked and the torrent deleted.
-# dangerous_extensions:
-  # - ".exe"
-  # - ".scr"
-  # - ".lnk"
-  # - ".com"
-  # - ".vbs"
-  # - ".ps1"
+dangerous_extensions:
+  - ".exe"
+  - ".scr"
+  - ".lnk"
+  - ".com"
+  - ".vbs"
+  - ".ps1"
 
 # ── Watchdog ─────────────────────────────────
-# watchdog:
-  # interval_seconds: 900                     # e.g. 900 or "15m"
+watchdog:
+  interval_seconds: 900                       # e.g., 900 or "15m"
+
+# ── Pending Imports Cleanup ──────────────────
+# How long to keep pending import records (hours) for out‑of‑order Download events.
+pending_imports_cleanup_hours: 1
 
 # ── UI Preferences ───────────────────────────
-# ui_preferences:
-  # show_advanced: false
-  # hide_uncategorized_by_default: true
-  # default_page_size: 50                     # 50 | 100 | 200
-  # confirm_data_deletion: true
-  # confirm_config_modification: true
-  # toast_duration_seconds: 5                 # e.g. 5 or "5s"
+ui_preferences:
+  show_advanced: false
+  hide_uncategorized_by_default: true
+  default_page_size: 50                       # 50, 100, 200
+  confirm_data_deletion: true
+  confirm_config_modification: true
+  toast_duration_seconds: 5                   # e.g., 5 or "5s"
+  log_level: "INFO"
