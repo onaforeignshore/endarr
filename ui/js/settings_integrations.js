@@ -8,7 +8,7 @@ import {
     showIconFeedback,
     setupFieldErrorClearing,
 } from './ui-helpers.js'
-import { escapeHtml, consoleDebug } from './utils.js'
+import { escapeHtml, consoleDebug, getApiKey } from './utils.js'
 
 /**
  * Initialise the Integrations settings page (ARR and download clients).
@@ -383,32 +383,33 @@ export function initIntegrationsForm(loadConfig, saveConfig, apiCall) {
                 webhookUrlInput.value = newUrl
             }
 
-            function sanitizeIdInput() {
-                let val = idInput.value
-                val = sanitizeId(val)
-                if (val !== idInput.value) idInput.value = val
-                updateWebhookUrl()
-            }
-
-            // For new client, auto-suggest ID from name
+            // Auto-suggest ID from name only when user hasn't manually changed the ID
             if (!isEdit) {
+                let userHasEditedId = false
                 nameInput.addEventListener('input', () => {
-                    const suggested = sanitizeId(nameInput.value)
-                    if (suggested && !idInput.value) {
-                        idInput.value = suggested
-                        updateWebhookUrl()
+                    if (!userHasEditedId) {
+                        const suggested = sanitizeId(nameInput.value)
+                        if (suggested) {
+                            idInput.value = suggested
+                            updateWebhookUrl()
+                        }
+                    }
+                })
+                idInput.addEventListener('input', () => {
+                    userHasEditedId = true
+                    // For new client, no warning (no original ID)
+                    warningDiv.style.display = 'none'
+                })
+            } else {
+                // For edit mode, just show warning on change
+                idInput.addEventListener('input', () => {
+                    if (idInput.value !== client.id) {
+                        warningDiv.style.display = 'block'
+                    } else {
+                        warningDiv.style.display = 'none'
                     }
                 })
             }
-
-            idInput.addEventListener('input', () => {
-                sanitizeIdInput()
-                if (isEdit && client && idInput.value !== client.id) {
-                    warningDiv.style.display = 'block'
-                } else {
-                    warningDiv.style.display = 'none'
-                }
-            })
 
             if (copyBtn) {
                 copyBtn.addEventListener('click', () => {
