@@ -1,3 +1,35 @@
+## [0.1.7] - 2026-06-11
+
+### Added
+
+- **Multi-ARR client identification** – differentiate multiple instances of the same \*Arr type via `arr_client` query parameter.
+    - Each ARR client now has a unique, URL‑safe `id` (auto‑assigned from type, editable in UI).
+    - Webhook URL displayed in ARR modal with copy button, includes `arr_client` parameter.
+    - Per‑instance policy overrides now work using `arr_id` from the grab record.
+- **Idempotency for Grab events** – duplicate grabs within 60 seconds are ignored to prevent database duplicates.
+- **Deprecation banner** – warns when legacy seeding policy fields (`ratio_goal`, `seed_time_seconds`, etc.) are detected.
+    - One‑click migration removes legacy fields while preserving comments.
+    - Endpoints `/api/v1/config/deprecated` and `/api/v1/config/migrate_legacy`.
+
+### Fixed
+
+- **Race condition** where Download webhook arrived before torrent was seen in client – added `pending_imports` table.
+    - Watchdog now applies pending import timestamp even when no grab is matched.
+- **Password toggle** in ARR modal now works correctly (pre‑filled API key, direct event listener).
+- **Webhook URL** in ARR modal updates live when changing Client ID.
+- **Modal aria-hidden warning** – blur focused element before closing modal.
+- **Tests** updated to pass after legacy field removal and multi-ARR changes.
+
+### Changed
+
+- Removed legacy seeding policy fields from `DEFAULT_CONFIG` (new configs no longer include them).
+- Updated `config.sample.yaml` to reflect current state, with comments for `arr_client`, `pending_imports_cleanup_hours`, etc.
+- `get_policy_for_torrent` now uses `arr_id` from grab for override matching.
+
+### Security
+
+- None.
+
 ## [0.1.6] - 2026-06-11
 
 ### Added
