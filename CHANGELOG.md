@@ -1,3 +1,19 @@
+## [0.1.6] - 2026-06-11
+
+### Added
+
+- **Deprecation banner** – warns when legacy seeding policy fields (ratio_goal, seed_time_seconds, etc.) are detected in the config.
+- **One‑click migration** – removes deprecated fields from config.yaml while preserving comments and formatting.
+- **API endpoints** – `/api/v1/config/deprecated` (check) and `/api/v1/config/migrate_legacy` (clean).
+
+### Changed
+
+- Remove legacy seeding fields from `DEFAULT_CONFIG`; new configs no longer include them.
+
+### Fixed
+
+- Global notification banner now appears in the correct position (inside `.main`) with improved button styling for both light and dark themes.
+
 ## [0.1.5] - 2026-06-11
 
 ### Added
