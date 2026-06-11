@@ -1901,9 +1901,11 @@ a.action-btn {
     justify-content: space-between;
     align-items: center;
     padding: 12px 20px;
-    border-radius: 8px;
     margin-bottom: 20px;
     color: white;
+    border-radius: 0;
+    width: 100%;
+    box-sizing: border-box;
 }
 .notification-banner.warning {
     background: var(--warning-color);
@@ -1915,20 +1917,39 @@ a.action-btn {
     display: flex;
     align-items: center;
     gap: 12px;
+    flex: 1;
 }
 .notification-banner .banner-actions {
     display: flex;
     align-items: center;
     gap: 12px;
+    margin-left: auto;
+}
+/* Unified button style for banner – works in both themes */
+.notification-banner button {
+    background: rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    color: white;
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+.notification-banner button:hover {
+    background: rgba(255, 255, 255, 0.35);
 }
 .notification-banner .icon-btn {
-    color: white;
-    font-size: 1.5rem;
-    padding: 0 4px;
     background: none;
+    border: none;
+    color: white;
+    font-size: 1.2rem;
+    padding: 4px;
+    margin-left: 8px;
 }
 .notification-banner .icon-btn:hover {
     background: rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
 }
 
 /* ============================================================

@@ -17,7 +17,7 @@ import time
 from functools import wraps
 from typing import Any, Dict, List, Optional
 
-from config_loader import get_config_issues, load_config
+from config_loader import get_config_issues, load_config, yaml
 from config_loader import save_config as save_yaml_config
 from flask import Flask, jsonify, request, send_file, send_from_directory
 from models.blacklist import Blacklist
@@ -608,6 +608,55 @@ def api_config_issues():
     """Return list of configuration validation issues."""
     issues = get_config_issues()
     return jsonify({"issues": [i.to_dict() if hasattr(i, 'to_dict') else {"field": i.field, "message": i.message} for i in issues]})
+
+@app.route("/api/v1/config/deprecated", methods=["GET"])
+@require_apikey
+def api_config_deprecated():
+    """Return whether the config contains deprecated legacy fields."""
+    from config_loader import has_deprecated_fields
+    config = get_config()
+    return jsonify({"has_deprecated": has_deprecated_fields(config)})
+
+@app.route("/api/v1/config/migrate_legacy", methods=["POST"])
+@require_apikey
+def api_config_migrate_legacy():
+    """Remove all deprecated legacy fields from the config."""
+    config = get_config()
+    defaults = config.get("defaults", {})
+    legacy_keys = [
+        "ratio_goal", "seed_time_seconds", "upload_amount_bytes",
+        "min_seeders", "idle_seconds", "no_availability_seconds"
+    ]
+    changed = False
+    for key in legacy_keys:
+        if key in defaults:
+            del defaults[key]
+            changed = True
+    # Reset legacy delete_policy to "none"
+    delete_policy = defaults.get("delete_policy")
+    if delete_policy in ("ratio", "time", "idle", "availability", "all"):
+        defaults["delete_policy"] = "none"
+        changed = True
+    if changed:
+        # Load the existing file's data structure (with comments)
+        with open(config_path, 'r') as f:
+            data = yaml.load(f) or {}
+        # Delete legacy fields from the loaded data
+        defaults = data.get("defaults", {})
+        legacy_keys = ["ratio_goal", "seed_time_seconds", "upload_amount_bytes", "min_seeders", "idle_seconds", "no_availability_seconds"]
+        for key in legacy_keys:
+            defaults.pop(key, None)
+        # Also fix delete_policy if legacy
+        delete_policy = defaults.get("delete_policy")
+        if delete_policy in ("ratio", "time", "idle", "availability", "all"):
+            defaults["delete_policy"] = "none"
+        # Save the modified data structure (preserves comments)
+        with open(config_path, 'w') as f:
+            yaml.dump(data, f)
+        # Update in‑memory config
+        app.config["ENDARR_CONFIG"] = config
+        logger.info("Legacy fields removed from config (comments preserved)")
+    return jsonify({"status": "ok", "changed": changed})
 
 def generate_webhook_key(length: int = 32) -> str:
     """Generate a secure random webhook key."""

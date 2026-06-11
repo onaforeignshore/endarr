@@ -414,6 +414,57 @@ export async function showOnboardingModal() {
 async function checkConfigIssues() {
     const key = getApiKey()
     if (!key) return
+
+    // First, check for deprecated legacy fields
+    try {
+        const deprecatedResp = await fetch('/api/v1/config/deprecated', {
+            headers: { 'X-Api-Key': key },
+        })
+        if (deprecatedResp.ok) {
+            const deprecatedData = await deprecatedResp.json()
+            if (deprecatedData.has_deprecated) {
+                showGlobalBanner(
+                    'warning',
+                    'Legacy seeding policy fields detected. Please migrate to the new "Calculated" policy.',
+                    [
+                        {
+                            text: 'Migrate',
+                            class: 'primary-btn',
+                            onClick: async () => {
+                                const migrateResp = await fetch('/api/v1/config/migrate_legacy', {
+                                    method: 'POST',
+                                    headers: { 'X-Api-Key': key },
+                                })
+                                if (migrateResp.ok) {
+                                    showToast(
+                                        'Configuration cleaned. The page will reload.',
+                                        'success'
+                                    )
+                                    setTimeout(() => window.location.reload(), 1500)
+                                } else {
+                                    showToast('Migration failed. Check logs.', 'error')
+                                }
+                            },
+                        },
+                        {
+                            text: 'View in Settings',
+                            class: 'secondary-btn',
+                            onClick: () => {
+                                toggleSubNav('settings')
+                                loadSubpage('settings', 'torrent')
+                            },
+                        },
+                    ],
+                    true
+                )
+                return // Don't show config issues banner if deprecated banner is shown
+            }
+        }
+    } catch (err) {
+        console.error('Failed to check deprecated fields:', err)
+    }
+
+    // Then check for regular config issues
     try {
         const resp = await fetch('/api/v1/config/issues', { headers: { 'X-Api-Key': key } })
         if (resp.ok) {

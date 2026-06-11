@@ -32,12 +32,6 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         "strike_blacklist": False,
         "policy_blacklist": False,
         "operator": "any",     # "any" = OR, "all" = AND
-        "ratio_goal": 2.0,
-        "seed_time_seconds": 86400,
-        "upload_amount_bytes": 0,
-        "min_seeders": 0,
-        "idle_seconds": 3600,
-        "no_availability_seconds": 7200,
         "upgrade_action": "move_category",
         "upgrade_category": "upgraded",
     },
@@ -96,6 +90,20 @@ DEFAULT_CONFIG: Dict[str, Any] = {
 
 _config_issues: List[ValidationIssue] = []
 
+def has_deprecated_fields(config: Dict[str, Any]) -> bool:
+    """Check if config contains legacy seeding policy fields."""
+    defaults = config.get("defaults", {})
+    legacy_keys = [
+        "ratio_goal", "seed_time_seconds", "upload_amount_bytes",
+        "min_seeders", "idle_seconds", "no_availability_seconds"
+    ]
+    for key in legacy_keys:
+        if key in defaults:
+            return True
+    delete_policy = defaults.get("delete_policy")
+    if delete_policy in ("ratio", "time", "idle", "availability", "all"):
+        return True
+    return False
 
 def load_config(config_path: str) -> Dict[str, Any]:
     """Load configuration from YAML file and merge with defaults.
