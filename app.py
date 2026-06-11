@@ -621,8 +621,14 @@ def api_config_deprecated():
 @require_apikey
 def api_config_migrate_legacy():
     """Remove all deprecated legacy fields from the config."""
-    config = get_config()
-    defaults = config.get("defaults", {})
+    from config_loader import load_config, yaml
+    config_path = app.config.get("CONFIG_PATH", os.getenv("ENDARR_CONFIG_PATH", "/app/config.yaml"))
+
+    # Load the existing file's data structure (with comments)
+    with open(config_path, 'r') as f:
+        data = yaml.load(f) or {}
+
+    defaults = data.get("defaults", {})
     legacy_keys = [
         "ratio_goal", "seed_time_seconds", "upload_amount_bytes",
         "min_seeders", "idle_seconds", "no_availability_seconds"
@@ -632,30 +638,21 @@ def api_config_migrate_legacy():
         if key in defaults:
             del defaults[key]
             changed = True
+
     # Reset legacy delete_policy to "none"
     delete_policy = defaults.get("delete_policy")
     if delete_policy in ("ratio", "time", "idle", "availability", "all"):
         defaults["delete_policy"] = "none"
         changed = True
+
     if changed:
-        # Load the existing file's data structure (with comments)
-        with open(config_path, 'r') as f:
-            data = yaml.load(f) or {}
-        # Delete legacy fields from the loaded data
-        defaults = data.get("defaults", {})
-        legacy_keys = ["ratio_goal", "seed_time_seconds", "upload_amount_bytes", "min_seeders", "idle_seconds", "no_availability_seconds"]
-        for key in legacy_keys:
-            defaults.pop(key, None)
-        # Also fix delete_policy if legacy
-        delete_policy = defaults.get("delete_policy")
-        if delete_policy in ("ratio", "time", "idle", "availability", "all"):
-            defaults["delete_policy"] = "none"
         # Save the modified data structure (preserves comments)
         with open(config_path, 'w') as f:
             yaml.dump(data, f)
-        # Update in‑memory config
-        app.config["ENDARR_CONFIG"] = config
+        # Reload the config to update the in‑memory copy
+        app.config["ENDARR_CONFIG"] = load_config(config_path)
         logger.info("Legacy fields removed from config (comments preserved)")
+
     return jsonify({"status": "ok", "changed": changed})
 
 def generate_webhook_key(length: int = 32) -> str:

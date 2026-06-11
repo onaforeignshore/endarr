@@ -1,5 +1,4 @@
 import pytest
-
 from config_loader import get_policy_for_torrent, is_protected, load_config
 
 
@@ -11,13 +10,13 @@ def test_load_config_defaults(temp_config, sample_config):
     assert config["protection"]["tags"] == ["private"]
 
 def test_load_config_merge(temp_config):
-    user = {"defaults": {"ratio_goal": 3.0}, "new_key": "value"}
+    user = {"defaults": {"delete_policy": "immediate"}, "new_key": "value"}
     path = temp_config(user)
     config = load_config(path)
-    assert config["defaults"]["ratio_goal"] == 3.0
+    assert config["defaults"]["delete_policy"] == "immediate"
     assert config["new_key"] == "value"
-    # Ensure other defaults still present
-    assert config["defaults"]["seed_time_seconds"] == 86400
+    # Ensure other defaults still present (non-legacy)
+    assert config["defaults"]["strike_threshold"] == 3
 
 def test_get_policy_for_torrent_no_overrides(sample_config):
     policy = get_policy_for_torrent(sample_config, "sonarr", "tv")

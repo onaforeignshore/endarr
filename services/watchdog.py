@@ -260,6 +260,15 @@ class Watchdog:
                 Grab.release_title.ilike(f"%{name}%")
             ).order_by(Grab.grabbed_at.desc()).first()
 
+        # --- Check for pending import (even if no grab) ---
+        pending = db.query(PendingImport).filter(PendingImport.hash == torrent_hash).first()
+        if pending:
+            import_completed_at = pending.import_completed_at
+            db.delete(pending)
+            self.logger.info("{bold}Watchdog{reset} Applied pending import for {cyan}%s{reset}", torrent_hash)
+        else:
+            import_completed_at = None
+
         if grab:
             # Check if this grab_id is already used by another download
             existing = db.query(Download).filter(Download.grab_id == grab.id).first()
@@ -280,6 +289,7 @@ class Watchdog:
                     total_size=total_size,
                     category=category,
                     ignored=True,
+                    import_completed_at=import_completed_at,
                 )
                 db.add(download)
                 db.commit()
@@ -287,15 +297,6 @@ class Watchdog:
 
             grab_id = grab.id
             self.logger.info("{bold}Watchdog{reset} Matched new torrent {cyan}%s{reset} to grab ID {cyan}%d{reset}", name, grab_id)
-
-            # Check for pending import
-            pending = db.query(PendingImport).filter(PendingImport.hash == torrent_hash).first()
-            if pending:
-                import_completed_at = pending.import_completed_at
-                db.delete(pending)
-                self.logger.info("{bold}Watchdog{reset} Applied pending import for {cyan}%s{reset}", torrent_hash)
-            else:
-                import_completed_at = None
 
             download = Download(
                 hash=torrent_hash,
@@ -359,6 +360,7 @@ class Watchdog:
                 total_size=total_size,
                 category=category,
                 ignored=True,
+                import_completed_at=import_completed_at,
             )
             db.add(download)
             db.commit()

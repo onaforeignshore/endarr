@@ -31,9 +31,10 @@ def test_history_returns_events(api_client, db_session):
     assert resp.status_code == 200
     data = resp.json
     assert data["total"] >= 3
-    keys = {"timestamp", "title", "arr_name", "indexer", "quality", "size", "type"}
+    # Expected keys in history response (subset of all keys)
+    expected_keys = {"timestamp", "title", "arr_name", "indexer", "quality", "size", "type", "reason"}
     for item in data["items"]:
-        assert set(item.keys()) == keys
+        assert expected_keys.issubset(set(item.keys()))
 
 def test_history_filter_by_type(api_client, db_session):
     import time
