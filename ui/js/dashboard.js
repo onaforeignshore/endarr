@@ -22,18 +22,8 @@ export async function initDashboard() {
     }
 
     const key = getApiKey()
-    const banner = document.getElementById('onboardingBanner')
 
     if (!key) {
-        if (banner) {
-            banner.style.display = 'flex'
-            document.getElementById('setupApiKeyBtn')?.addEventListener('click', () => {
-                import('./app.js').then((m) => m.showOnboardingModal?.())
-            })
-            document.getElementById('dismissBannerBtn')?.addEventListener('click', () => {
-                banner.style.display = 'none'
-            })
-        }
         healthSpan.innerText = 'No API Key'
         sysList.innerHTML = '<div class="status-item">API key required for webhooks</div>'
         activeSpan.innerText = '—'
@@ -113,31 +103,6 @@ export async function initDashboard() {
             activeSpan.innerText = '?'
             grabsSpan.innerText = '?'
             deletionsSpan.innerText = '?'
-        }
-
-        // Configuration issues banner
-        const issuesResp = await fetch('/api/v1/config/issues', { headers: { 'X-Api-Key': key } })
-        if (issuesResp.ok) {
-            const issuesData = await issuesResp.json()
-            if (issuesData.issues.length > 0) {
-                const banner = document.createElement('div')
-                banner.className = 'onboarding-banner'
-                banner.style.background = 'var(--warning-color)'
-                banner.innerHTML = `
-                    <div class="banner-content">
-                        <i class="fas fa-exclamation-triangle"></i>
-                        <span>${issuesData.issues.length} configuration issue${issuesData.issues.length > 1 ? 's' : ''} detected. Invalid values have been replaced with defaults.</span>
-                    </div>
-                    <div class="banner-actions">
-                        <button class="primary-btn" id="viewConfigIssuesBtn">View Issues</button>
-                    </div>`
-                const content = document.getElementById('pageContent')
-                content.insertBefore(banner, content.firstChild)
-                document.getElementById('viewConfigIssuesBtn').addEventListener('click', () => {
-                    window.toggleSubNav?.('settings')
-                    window.loadSubpage?.('settings', 'general')
-                })
-            }
         }
 
         // Database info

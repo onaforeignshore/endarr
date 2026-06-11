@@ -37,8 +37,8 @@ export function showToast(message, type = 'success', duration = null) {
         type === 'success'
             ? 'fa-check-circle'
             : type === 'error'
-            ? 'fa-exclamation-circle'
-            : 'fa-info-circle'
+              ? 'fa-exclamation-circle'
+              : 'fa-info-circle'
     toast.innerHTML = `<i class="fas ${icon}"></i><span>${message}</span><button class="toast-close" aria-label="Dismiss">&times;</button>`
 
     toastContainer.appendChild(toast)
@@ -202,4 +202,47 @@ export function setupFieldErrorClearing(container = document) {
         input.removeEventListener('input', handler)
         input.addEventListener('input', handler)
     })
+}
+
+/**
+ * Show a global notification banner.
+ * @param {string} type - 'warning' or 'info'
+ * @param {string} message - Banner message
+ * @param {Array} buttons - Array of {text, class, onClick}
+ * @param {boolean} dismissible - Whether the dismiss button is shown
+ */
+export function showGlobalBanner(type, message, buttons = [], dismissible = true) {
+    const banner = document.getElementById('globalNotificationBanner')
+    if (!banner) return
+    const msgSpan = document.getElementById('notificationBannerMessage')
+    const actionsDiv = document.getElementById('notificationBannerActions')
+    const dismissBtn = document.getElementById('dismissNotificationBanner')
+
+    // Set icon and colour
+    const icon = type === 'warning' ? 'fa-exclamation-triangle' : 'fa-info-circle'
+    banner.querySelector('.banner-content i').className = `fas ${icon}`
+    banner.className = `notification-banner ${type}`
+    msgSpan.innerText = message
+    actionsDiv.innerHTML = ''
+    buttons.forEach((btn) => {
+        const button = document.createElement('button')
+        button.className = btn.class || 'primary-btn'
+        button.innerText = btn.text
+        button.addEventListener('click', btn.onClick)
+        actionsDiv.appendChild(button)
+    })
+    if (dismissible) {
+        dismissBtn.style.display = 'inline-flex'
+        dismissBtn.onclick = () => {
+            banner.style.display = 'none'
+        }
+    } else {
+        dismissBtn.style.display = 'none'
+    }
+    banner.style.display = 'flex'
+}
+
+export function hideGlobalBanner() {
+    const banner = document.getElementById('globalNotificationBanner')
+    if (banner) banner.style.display = 'none'
 }

@@ -3,7 +3,14 @@ import { loadConfig, saveConfig, apiCall } from './config.js'
 import { initDashboard } from './dashboard.js'
 import { openModal } from './modal.js'
 import { initTooltips } from './tooltip.js'
-import { showToast, showConfirm, showIconFeedback, confirmAction } from './ui-helpers.js'
+import {
+    showToast,
+    showConfirm,
+    showIconFeedback,
+    confirmAction,
+    showGlobalBanner,
+    hideGlobalBanner,
+} from './ui-helpers.js'
 import { getApiKey, consoleDebug } from './utils.js'
 
 let currentSection = null
@@ -232,6 +239,7 @@ async function loadSubpage(section, pageId) {
             contentDiv.innerHTML = html
             if (cfg.init) await cfg.init()
             initTooltips(contentDiv)
+            checkConfigIssues()
         })
         .catch((err) => {
             contentDiv.innerHTML = `<div class="placeholder-text">Error loading page: ${err.message}</div>`
@@ -399,6 +407,42 @@ export async function showOnboardingModal() {
     })
 }
 
+/**
+ * Fetch configuration issues and show global banner if any.
+ * @returns {Promise<void>}
+ */
+async function checkConfigIssues() {
+    const key = getApiKey()
+    if (!key) return
+    try {
+        const resp = await fetch('/api/v1/config/issues', { headers: { 'X-Api-Key': key } })
+        if (resp.ok) {
+            const data = await resp.json()
+            if (data.issues && data.issues.length > 0) {
+                showGlobalBanner(
+                    'warning',
+                    `${data.issues.length} configuration issue(s) detected.`,
+                    [
+                        {
+                            text: 'View Issues',
+                            class: 'primary-btn',
+                            onClick: () => {
+                                toggleSubNav('settings')
+                                loadSubpage('settings', 'general')
+                            },
+                        },
+                    ],
+                    true
+                )
+                return
+            }
+        }
+    } catch (err) {
+        console.error('Failed to fetch config issues:', err)
+    }
+    hideGlobalBanner()
+}
+
 // ========== Connection Monitoring ==========
 const CONNECTION_CHECK_INTERVAL = 30000
 let lastConnectionStates = { downloadClients: {}, arrClients: {} }
@@ -475,6 +519,18 @@ document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => {
         if (getApiKey()) startConnectionMonitoring()
     }, 500)
+
+    const key = getApiKey()
+    if (!key) {
+        showGlobalBanner(
+            'info',
+            'No API key configured. Webhooks from *Arr apps will not work.',
+            [{ text: 'Set up now', class: 'primary-btn', onClick: () => showOnboardingModal() }],
+            false
+        )
+    } else {
+        checkConfigIssues()
+    }
 
     const menuBtn = document.getElementById('menuBtn')
     const menuDropdown = document.getElementById('menuDropdown')
