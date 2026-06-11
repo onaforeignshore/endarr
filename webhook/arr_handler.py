@@ -5,9 +5,8 @@ import logging
 import time
 from typing import Any, Dict, Optional
 
-from flask import current_app, jsonify, request
-
 from config_loader import get_policy_for_torrent
+from flask import current_app, jsonify, request
 from models.blacklist import Blacklist
 from models.database import SessionLocal
 from models.downloads import Download
@@ -117,6 +116,17 @@ def handle_grab(data: Dict[str, Any]):
             if arr_client:
                 arr_client.reject_release(release_title, reason=f"Blacklisted: {blacklisted.reason}")
             return jsonify({"status": "blacklisted"}), 200
+
+        # Check for duplicate within last 60 seconds
+        recent = db.query(Grab).filter(
+            Grab.release_title == release_title,
+            Grab.arr_name == arr_name,
+            Grab.media_id == media_id,
+            Grab.grabbed_at > time.time() - 60
+        ).first()
+        if recent:
+            logger.info("{bold}Grab{reset} Duplicate grab ignored: %s", release_title)
+            return jsonify({"status": "duplicate"}), 200
     finally:
         db.close()
 
