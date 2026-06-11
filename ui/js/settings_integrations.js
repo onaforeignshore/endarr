@@ -7,6 +7,7 @@ import {
     confirmAction,
     showIconFeedback,
     setupFieldErrorClearing,
+    showConfirm,
 } from './ui-helpers.js'
 import { escapeHtml, consoleDebug, getApiKey } from './utils.js'
 
