@@ -141,6 +141,11 @@ export function closeModal() {
     const modal = document.getElementById('globalModal')
     if (!modal) return
 
+    // If any element inside modal has focus, blur it first
+    if (modal.contains(document.activeElement)) {
+        document.activeElement.blur()
+    }
+
     if (modal._escapeHandler) {
         document.removeEventListener('keydown', modal._escapeHandler)
         delete modal._escapeHandler
