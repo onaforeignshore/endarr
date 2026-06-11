@@ -318,6 +318,24 @@ def _validate_arrs(original: dict, merged: dict, issues: List[ValidationIssue]) 
             _add_issue(issues, f"{field_prefix}.api_key", "API key cannot be empty")
 
 
+def _validate_arr_ids(original: dict, merged: dict, issues: List[ValidationIssue]) -> None:
+    """Validate ARR client IDs are unique and URL-safe."""
+    arrs = merged.get("arrs", [])
+    ids_seen = set()
+    for i, arr in enumerate(arrs):
+        arr_id = arr.get("id")
+        if not arr_id:
+            _add_issue(issues, f"arrs[{i}].id", "Missing ID")
+            continue
+        if arr_id in ids_seen:
+            _add_issue(issues, f"arrs[{i}].id", f"Duplicate ID '{arr_id}'")
+        else:
+            ids_seen.add(arr_id)
+        # Check URL-safe characters (alphanumeric, underscore, hyphen)
+        if not all(c.isalnum() or c in "_-" for c in arr_id):
+            _add_issue(issues, f"arrs[{i}].id", f"ID contains invalid characters (use only letters, numbers, underscore, hyphen): '{arr_id}'")
+
+
 def _validate_download_clients(original: dict, merged: dict, issues: List[ValidationIssue]) -> None:
     """Validate download_clients list."""
     if "download_clients" not in original:
@@ -558,6 +576,7 @@ def validate_config(original: Dict[str, Any], merged: Dict[str, Any]) -> List[Va
 
     _validate_defaults(original, merged, issues)
     _validate_arrs(original, merged, issues)
+    _validate_arr_ids(original, merged, issues)
     _validate_download_clients(original, merged, issues)
     _validate_protection(original, merged, issues)
     _validate_problematic(original, merged, issues)

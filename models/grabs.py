@@ -21,5 +21,5 @@ class Grab(Base):
     quality: Mapped[str | None] = mapped_column(String, nullable=True)
     size: Mapped[int | None] = mapped_column(Integer, nullable=True)         # bytes
     raw_payload: Mapped[str | None] = mapped_column(Text, nullable=True)     # JSON string for debugging
-    client_id: Mapped[str | None] = mapped_column(String, nullable=True)     # ARR client ID (from query param)
-    arr_id: Mapped[str | None] = mapped_column(String, nullable=True)        # same as client_id
+    client_id: Mapped[str | None] = mapped_column(String, nullable=True)     # Download client ID (from `client` query param)
+    arr_id: Mapped[str | None] = mapped_column(String, nullable=True)        # ARR client ID (from `arr_client` query param) for multi-ARR identification

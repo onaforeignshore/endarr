@@ -88,6 +88,24 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "pending_imports_cleanup_hours": 1,
 }
 
+def _ensure_arr_ids(config: Dict[str, Any]) -> None:
+    """Ensure every ARR client has a unique ID. Assigns type name as default ID."""
+    arrs = config.get("arrs", [])
+    type_counters = {}
+    for arr in arrs:
+        if "id" not in arr or not arr["id"]:
+            # Assign default ID: type name, or type_name_2 if conflict
+            base_id = arr.get("type", "unknown")
+            if base_id in type_counters:
+                type_counters[base_id] += 1
+                arr["id"] = f"{base_id}_{type_counters[base_id]}"
+            else:
+                type_counters[base_id] = 1
+                arr["id"] = base_id
+        else:
+            # Ensure ID is URL-safe
+            arr["id"] = arr["id"].replace(" ", "_").lower()
+
 _config_issues: List[ValidationIssue] = []
 
 def has_deprecated_fields(config: Dict[str, Any]) -> bool:
@@ -129,6 +147,8 @@ def load_config(config_path: str) -> Dict[str, Any]:
     # Merge with defaults
     config = deepcopy(DEFAULT_CONFIG)
     _deep_merge(config, user_config)
+
+    _ensure_arr_ids(config)
 
     # Normalize the merged config
     normalize_config(config)

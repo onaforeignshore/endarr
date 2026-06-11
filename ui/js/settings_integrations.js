@@ -140,39 +140,85 @@ export function initIntegrationsForm(loadConfig, saveConfig, apiCall) {
         const isEdit = index !== -1
         const client = isEdit ? arrClients[index] : null
 
+        // Helper to generate a sanitized ID from a name
+        function sanitizeId(input) {
+            return input
+                .toLowerCase()
+                .replace(/[^a-z0-9_-]/g, '_')
+                .replace(/^_+|_+$/g, '')
+        }
+
+        // Get current API key for webhook URL
+        const apiKey = getApiKey()
+
+        // Generate temporary ID for new client
+        let currentId = isEdit ? client.id || '' : client?.name ? sanitizeId(client.name) : ''
+        if (!isEdit && !currentId) currentId = 'arr_' + Date.now().toString(36)
+
+        // Build webhook URL
+        function buildWebhookUrl(id) {
+            if (!apiKey || !id) return ''
+            return `${window.location.origin}/arr?apikey=${apiKey}&arr_client=${id}`
+        }
+
+        let webhookUrl = buildWebhookUrl(currentId)
+
         const bodyHtml = `
-            <div class="form-group">
-                <label for="modalArrType">Type</label>
-                <select id="modalArrType" ${isEdit ? 'disabled' : ''} aria-label="ARR type">
-                    <option value="radarr" ${client?.type === 'radarr' ? 'selected' : ''}>Radarr</option>
-                    <option value="sonarr" ${client?.type === 'sonarr' ? 'selected' : ''}>Sonarr</option>
-                    <option value="lidarr" ${client?.type === 'lidarr' ? 'selected' : ''}>Lidarr</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label for="modalArrName">Name</label>
-                <input type="text" id="modalArrName" value="${escapeHtml(client?.name || '')}" placeholder="e.g., My Radarr" aria-label="ARR client name" data-field="arrs.name">
-                <div class="error-message" id="modalArrNameError" style="display: none;" role="alert"></div>
-            </div>
-            <div class="checkbox-row">
-                <input type="checkbox" id="modalArrEnabled" ${!isEdit || client.enabled !== false ? 'checked' : ''}>
-                <label for="modalArrEnabled">Enabled</label>
-            </div>
-            <div class="form-group">
-                <label for="modalArrUrl">URL</label>
-                <input type="text" id="modalArrUrl" value="${escapeHtml(client?.url || '')}" placeholder="http://radarr:7878" aria-label="ARR URL" data-field="arrs.url">
-                <div class="error-message" id="modalArrUrlError" style="display: none;" role="alert"></div>
-            </div>
-            <div class="form-group">
-                <label for="modalArrApiKey">API Key</label>
-                <div class="password-wrapper">
-                    <input type="password" id="modalArrApiKey" placeholder="API key from ARR settings" aria-label="API Key" data-field="arrs.api_key">
-                    <button type="button" class="toggle-password" aria-label="Toggle API key visibility"><i class="fas fa-eye"></i></button>
-                </div>
-                ${isEdit ? '<p class="input-note">Leave blank to keep existing key</p>' : ''}
-                <div class="error-message" id="modalArrApiKeyError" style="display: none;" role="alert"></div>
-            </div>
-        `
+             <div class="form-group">
+                 <label for="modalArrType">Type</label>
+                 <select id="modalArrType" ${isEdit ? 'disabled' : ''} aria-label="ARR type">
+                     <option value="radarr" ${client?.type === 'radarr' ? 'selected' : ''}>Radarr</option>
+                     <option value="sonarr" ${client?.type === 'sonarr' ? 'selected' : ''}>Sonarr</option>
+                     <option value="lidarr" ${client?.type === 'lidarr' ? 'selected' : ''}>Lidarr</option>
+                 </select>
+             </div>
+             <div class="form-group">
+                 <label for="modalArrName">Name</label>
+                 <input type="text" id="modalArrName" value="${escapeHtml(client?.name || '')}" placeholder="e.g., My Radarr" aria-label="ARR client name" data-field="arrs.name">
+                 <div class="error-message" id="modalArrNameError" style="display: none;" role="alert"></div>
+             </div>
+             <div class="form-group">
+                 <label for="modalArrId">
+                     Client ID
+                     <span class="tooltip"><i class="fas fa-question-circle tooltip-icon"></i><span class="tooltip-text">Unique identifier used in webhook URL (URL-safe). Can be changed later, but will break existing webhooks.</span></span>
+                 </label>
+                 <input type="text" id="modalArrId" value="${escapeHtml(currentId)}" placeholder="e.g., radarr_hd" aria-label="ARR client ID">
+                 <div id="modalArrIdWarning" class="error-message" style="display: none; color: var(--warning-color);"><i class="fas fa-exclamation-triangle"></i> Changing this ID will break existing webhook URLs that use the old ID. Update your *Arr webhook configuration accordingly.</div>
+                 <div class="error-message" id="modalArrIdError" style="display: none;" role="alert"></div>
+             </div>
+             <div class="checkbox-row">
+                 <input type="checkbox" id="modalArrEnabled" ${!isEdit || client.enabled !== false ? 'checked' : ''}>
+                 <label for="modalArrEnabled">Enabled</label>
+             </div>
+             <div class="form-group">
+                 <label for="modalArrUrl">URL</label>
+                 <input type="text" id="modalArrUrl" value="${escapeHtml(client?.url || '')}" placeholder="http://radarr:7878" aria-label="ARR URL" data-field="arrs.url">
+                 <div class="error-message" id="modalArrUrlError" style="display: none;" role="alert"></div>
+             </div>
+             <div class="form-group">
+                 <label for="modalArrApiKey">API Key</label>
+                 <div class="password-wrapper">
+                     <input type="password" id="modalArrApiKey" placeholder="API key from ARR settings" aria-label="API Key" data-field="arrs.api_key">
+                     <button type="button" class="toggle-password" aria-label="Toggle API key visibility"><i class="fas fa-eye"></i></button>
+                 </div>
+                 ${isEdit ? '<p class="input-note">Leave blank to keep existing key</p>' : ''}
+                 <div class="error-message" id="modalArrApiKeyError" style="display: none;" role="alert"></div>
+             </div>
+             <div class="form-group">
+                 <label for="modalWebhookUrl">Webhook URL</label>
+                 <div class="flex-row" style="align-items: center;">
+                     <input type="text" id="modalWebhookUrl" value="${escapeHtml(webhookUrl)}" readonly class="monospace" style="flex: 1;">
+                     <button class="icon-btn-feedback" id="copyWebhookUrlBtn" title="Copy to clipboard">
+                         <span class="btn-icon-wrapper">
+                             <i class="far fa-copy"></i>
+                             <i class="fas fa-check"></i>
+                             <i class="fas fa-times"></i>
+                         </span>
+                     </button>
+                 </div>
+                 <p class="input-note">Use this URL in your *Arr webhook configuration. The <code>arr_client</code> parameter identifies this specific ARR instance.</p>
+             </div>
+         `
 
         openModal({
             title: isEdit ? 'Edit ARR Client' : 'Add ARR Client',
@@ -256,14 +302,38 @@ export function initIntegrationsForm(loadConfig, saveConfig, apiCall) {
                     class: 'primary-btn',
                     onClick: async () => {
                         const type = document.getElementById('modalArrType').value
-                        const name = document.getElementById('modalArrName').value.trim() || type
+                        const name = document.getElementById('modalArrName').value.trim()
+                        let id = document.getElementById('modalArrId').value.trim()
                         const enabled = document.getElementById('modalArrEnabled').checked
                         const url = document.getElementById('modalArrUrl').value.trim()
-                        const apiKey = document.getElementById('modalArrApiKey').value.trim()
+                        const apiKeyValue = document.getElementById('modalArrApiKey').value.trim()
+
+                        // Validate ID
+                        if (!id) {
+                            showToast('Client ID is required', 'error')
+                            return false
+                        }
+                        const idPattern = /^[a-zA-Z0-9_-]+$/
+                        if (!idPattern.test(id)) {
+                            showToast(
+                                'Client ID must contain only letters, numbers, underscore, or hyphen',
+                                'error'
+                            )
+                            return false
+                        }
+                        // Check uniqueness
+                        const existingIds = arrClients
+                            .filter((c) => c.id !== (client?.id || null))
+                            .map((c) => c.id)
+                        if (existingIds.includes(id)) {
+                            showToast(`Client ID '${id}' is already in use`, 'error')
+                            return false
+                        }
+
                         const errors = []
                         if (!name) errors.push({ field: 'arrs.name', message: 'Name is required' })
                         if (!url) errors.push({ field: 'arrs.url', message: 'URL is required' })
-                        if (!isEdit && !apiKey)
+                        if (!isEdit && !apiKeyValue)
                             errors.push({ field: 'arrs.api_key', message: 'API Key is required' })
                         if (errors.length > 0) {
                             displayFormErrors(errors, document.getElementById('globalModal'))
@@ -274,12 +344,19 @@ export function initIntegrationsForm(loadConfig, saveConfig, apiCall) {
                             name,
                             enabled,
                             url,
-                            api_key: apiKey || (isEdit ? client.api_key : ''),
+                            api_key: apiKeyValue || (isEdit ? client.api_key : ''),
+                            id: id,
                         }
                         if (isEdit) {
+                            // If ID changed, warn but allow
+                            if (client.id !== id) {
+                                const confirmed = await showConfirm(
+                                    `Changing the Client ID from '${client.id}' to '${id}' will break existing webhook URLs. Continue?`
+                                )
+                                if (!confirmed) return false
+                            }
                             Object.assign(arrClients[editingArrIndex], newClient)
                         } else {
-                            newClient.id = generateId()
                             arrClients.push(newClient)
                         }
                         await persistConfig()
@@ -292,7 +369,55 @@ export function initIntegrationsForm(loadConfig, saveConfig, apiCall) {
             onClose: () => {},
         })
 
+        // After modal is rendered, set up event listeners
         setTimeout(() => {
+            const nameInput = document.getElementById('modalArrName')
+            const idInput = document.getElementById('modalArrId')
+            const webhookUrlInput = document.getElementById('modalWebhookUrl')
+            const copyBtn = document.getElementById('copyWebhookUrlBtn')
+            const warningDiv = document.getElementById('modalArrIdWarning')
+
+            function updateWebhookUrl() {
+                const newId = idInput.value.trim()
+                const newUrl = buildWebhookUrl(newId)
+                webhookUrlInput.value = newUrl
+            }
+
+            function sanitizeIdInput() {
+                let val = idInput.value
+                val = sanitizeId(val)
+                if (val !== idInput.value) idInput.value = val
+                updateWebhookUrl()
+            }
+
+            // For new client, auto-suggest ID from name
+            if (!isEdit) {
+                nameInput.addEventListener('input', () => {
+                    const suggested = sanitizeId(nameInput.value)
+                    if (suggested && !idInput.value) {
+                        idInput.value = suggested
+                        updateWebhookUrl()
+                    }
+                })
+            }
+
+            idInput.addEventListener('input', () => {
+                sanitizeIdInput()
+                if (isEdit && client && idInput.value !== client.id) {
+                    warningDiv.style.display = 'block'
+                } else {
+                    warningDiv.style.display = 'none'
+                }
+            })
+
+            if (copyBtn) {
+                copyBtn.addEventListener('click', () => {
+                    navigator.clipboard.writeText(webhookUrlInput.value)
+                    showIconFeedback(copyBtn, 'success')
+                })
+            }
+
+            // Password toggle (existing)
             const toggleBtn = document.querySelector('#modalArrApiKey + .toggle-password')
             if (toggleBtn) {
                 toggleBtn.addEventListener('click', () => {
@@ -307,6 +432,7 @@ export function initIntegrationsForm(loadConfig, saveConfig, apiCall) {
                     }
                 })
             }
+
             setupFieldErrorClearing(document.getElementById('globalModal'))
         }, 50)
     }

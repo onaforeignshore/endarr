@@ -101,6 +101,22 @@ def handle_grab(data: Dict[str, Any]):
         logger.warning("Unknown *Arr type in grab")
         return jsonify({"status": "unknown arr"}), 200
 
+    arr_client = request.args.get("arr_client")
+    # Validate arr_client only if multiple ARRs of same type exist in config
+    config = current_app.config["ENDARR_CONFIG"]
+    arrs = config.get("arrs", [])
+    same_type_count = sum(1 for a in arrs if a.get("type") == arr_name and a.get("enabled", True))
+    if same_type_count > 1:
+        if arr_client:
+            # Check if arr_client matches any enabled ARR of this type
+            valid = any(a.get("id") == arr_client for a in arrs if a.get("type") == arr_name and a.get("enabled", True))
+            if not valid:
+                logger.warning("{bold}Webhook{reset} Invalid arr_client '%s' for %s, falling back to auto-detection", arr_client, arr_name)
+                arr_client = None
+        else:
+            logger.warning("{bold}Webhook{reset} Multiple %s instances detected but no arr_client provided. Using auto-detection (first instance).", arr_name)
+    # else: ignore arr_client (single instance)
+
     client_id = request.args.get("client")
 
     db = SessionLocal()
@@ -147,8 +163,8 @@ def handle_grab(data: Dict[str, Any]):
             quality=quality,
             size=size,
             raw_payload=json.dumps(data),
-            client_id=client_id,
-            arr_id=client_id,
+            client_id=client_id,     # download client ID (existing)
+            arr_id=arr_client,       # ARR client ID from query param (or None)
         )
         db.add(grab)
         db.commit()
@@ -198,6 +214,22 @@ def handle_download(data: Dict[str, Any]):
         media_id = str(data["movie"].get("id"))
     elif "artist" in data:
         media_id = str(data["artist"].get("id"))
+
+    arr_client = request.args.get("arr_client")
+    # Validate arr_client only if multiple ARRs of same type exist in config
+    config = current_app.config["ENDARR_CONFIG"]
+    arrs = config.get("arrs", [])
+    same_type_count = sum(1 for a in arrs if a.get("type") == arr_name and a.get("enabled", True))
+    if same_type_count > 1:
+        if arr_client:
+            # Check if arr_client matches any enabled ARR of this type
+            valid = any(a.get("id") == arr_client for a in arrs if a.get("type") == arr_name and a.get("enabled", True))
+            if not valid:
+                logger.warning("{bold}Webhook{reset} Invalid arr_client '%s' for %s, falling back to auto-detection", arr_client, arr_name)
+                arr_client = None
+        else:
+            logger.warning("{bold}Webhook{reset} Multiple %s instances detected but no arr_client provided. Using auto-detection (first instance).", arr_name)
+    # else: ignore arr_client (single instance)
 
     db = SessionLocal()
     try:
