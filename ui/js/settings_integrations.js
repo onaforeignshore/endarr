@@ -408,6 +408,7 @@ export function initIntegrationsForm(loadConfig, saveConfig, apiCall) {
                     } else {
                         warningDiv.style.display = 'none'
                     }
+                    updateWebhookUrl()
                 })
             }
 
