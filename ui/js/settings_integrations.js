@@ -198,7 +198,7 @@ export function initIntegrationsForm(loadConfig, saveConfig, apiCall) {
              <div class="form-group">
                  <label for="modalArrApiKey">API Key</label>
                  <div class="password-wrapper">
-                     <input type="password" id="modalArrApiKey" placeholder="API key from ARR settings" aria-label="API Key" data-field="arrs.api_key">
+                 <input type="password" id="modalArrApiKey" value="${escapeHtml(client?.api_key || '')}" placeholder="API key from ARR settings" aria-label="API Key" data-field="arrs.api_key">
                      <button type="button" class="toggle-password" aria-label="Toggle API key visibility"><i class="fas fa-eye"></i></button>
                  </div>
                  ${isEdit ? '<p class="input-note">Leave blank to keep existing key</p>' : ''}
@@ -419,10 +419,14 @@ export function initIntegrationsForm(loadConfig, saveConfig, apiCall) {
                 })
             }
 
-            // Password toggle (existing)
-            const toggleBtn = document.querySelector('#modalArrApiKey + .toggle-password')
+            // Password toggle
+            const passwordWrapper = document
+                .querySelector('#modalArrApiKey')
+                ?.closest('.password-wrapper')
+            const toggleBtn = passwordWrapper?.querySelector('.toggle-password')
             if (toggleBtn) {
-                toggleBtn.addEventListener('click', () => {
+                toggleBtn.addEventListener('click', (e) => {
+                    e.preventDefault()
                     const input = document.getElementById('modalArrApiKey')
                     const icon = toggleBtn.querySelector('i')
                     if (input.type === 'password') {
@@ -433,6 +437,8 @@ export function initIntegrationsForm(loadConfig, saveConfig, apiCall) {
                         icon.className = 'fas fa-eye'
                     }
                 })
+            } else {
+                console.warn('[Integrations] Toggle password button not found for ARR modal')
             }
 
             setupFieldErrorClearing(document.getElementById('globalModal'))
