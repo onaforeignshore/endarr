@@ -1,3 +1,15 @@
+## [0.1.5] - 2026-06-11
+
+### Added
+
+- **Global notification banner** – displays configuration issues and API key onboarding messages across all pages (replaces dashboard‑only banners). (#feat)
+- **Pending imports table** – stores Download webhooks that arrive before the torrent is seen in the download client, preventing race conditions. (#fix)
+- Configuration option `pending_imports_cleanup_hours` (default 1) to automatically remove stale pending imports. (#fix)
+
+### Fixed
+
+- Race condition where a Download webhook could arrive before the watchdog matched the torrent, causing `import_completed_at` to never be set. The pending imports table now captures the event, and the watchdog applies it when the torrent appears. (#fix)
+
 ## v0.1.4 (2026-06-06)
 
 ### Added
