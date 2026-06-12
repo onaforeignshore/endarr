@@ -1,3 +1,24 @@
+## [0.1.8] - 2026-06-12
+
+### Added
+
+- **Tests for multi-ARR client identification** – new `test_multi_arr.py` covering `arr_client` parameter, ID uniqueness, URL‑safe validation, and default ID assignment.
+- **Idempotency test for Grab events** – ensures duplicate grabs within 60 seconds are ignored.
+
+### Changed
+
+- **Documentation** – comprehensive wiki update:
+    - Added `arr_client` parameter to webhook setup.
+    - Documented ARR client `id` usage and uniqueness.
+    - Added `pending_imports_cleanup_hours` section.
+    - Fixed formatting, typos, and leading spaces across all wiki pages.
+    - Updated protection rule keys (`tags`, `categories`, `tracker_domains`).
+    - Standardised UI menu formatting (bold for menu paths).
+
+### Fixed
+
+- Minor formatting issues in wiki (stray characters, control characters, inconsistent backticks).
+
 ## [0.1.7] - 2026-06-11
 
 ### Added
