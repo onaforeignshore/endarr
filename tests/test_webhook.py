@@ -1,5 +1,6 @@
-import pytest
 import time
+
+import pytest
 from models.blacklist import Blacklist
 from models.downloads import Download
 from models.grabs import Grab
@@ -173,7 +174,7 @@ def test_webhook_download_upgrade_delete_immediate(client, db_session, mocker):
     # Mock policy
     policy = {'upgrade_action': 'delete_immediate', 'upgrade_category': 'upgraded'}
     mocker.patch('webhook.arr_handler.get_policy_for_torrent', return_value=policy)
-    
+
     # The client fixture already sets CLIENT_INSTANCES_BY_NAME with qb_1
     mock_download = client.application.config['CLIENT_INSTANCES_BY_NAME']['qb_1']
 
@@ -191,3 +192,23 @@ def test_webhook_download_upgrade_delete_immediate(client, db_session, mocker):
     updated_old = db_session.query(Download).filter_by(hash='old123').first()
     assert updated_old.deleted_at is not None
     assert updated_old.delete_reason == 'upgraded'
+
+def test_duplicate_grab_within_60_seconds_ignored(api_client, db_session):
+    """Second identical grab within 60 seconds should be ignored."""
+    payload = {
+        "eventType": "Grab",
+        "movie": {"id": 999, "title": "Duplicate Test"},
+        "release": {"releaseTitle": "Duplicate.Release.2024"},
+    }
+    # First grab
+    resp1 = api_client.post("/arr?apikey=test-key", json=payload)
+    assert resp1.status_code == 200
+    assert resp1.json == {"status": "grabbed"}
+
+    # Second grab (same payload, same media_id)
+    resp2 = api_client.post("/arr?apikey=test-key", json=payload)
+    assert resp2.status_code == 200
+    assert resp2.json == {"status": "duplicate"}
+
+    # Only one grab record in DB
+    assert db_session.query(Grab).count() == 1
